@@ -1,0 +1,2749 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crash Study! 🐾</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --orange: #FF6B00;
+  --orange2: #FF9500;
+  --brown: #8B4513;
+  --brown2: #5C2E00;
+  --sky: #4EC9FF;
+  --sky2: #87DEFB;
+  --green: #2ECC40;
+  --green2: #27AE60;
+  --red: #FF4136;
+  --red2: #C0392B;
+  --yellow: #FFD700;
+  --purple: #9B59B6;
+  --tnt: #FF0000;
+  --wumpa: #FF6B35;
+  --dark: #1a0a00;
+  --sand: #F5DEB3;
+}
+
+body {
+  font-family: 'Nunito', sans-serif;
+  background: #1a0a00;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ===== JUNGLE ROAD BG ===== */
+#road-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* ===== APP ===== */
+#app {
+  position: relative;
+  z-index: 2;
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 0 16px 80px;
+}
+
+/* ===== TOP BAR ===== */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 0 12px;
+}
+
+.close-btn {
+  background: var(--orange);
+  border: 3px solid var(--brown2);
+  border-radius: 10px;
+  font-size: 1rem;
+  cursor: pointer;
+  color: white;
+  padding: 4px 10px;
+  font-weight: 900;
+  font-family: 'Bangers', cursive;
+  letter-spacing: 1px;
+  box-shadow: 0 3px 0 var(--brown2);
+}
+
+.prog-outer {
+  flex: 1;
+  height: 18px;
+  background: var(--brown2);
+  border-radius: 999px;
+  border: 3px solid var(--brown);
+  overflow: hidden;
+}
+
+.prog-inner {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yellow), var(--orange2));
+  border-radius: 999px;
+  transition: width 0.5s cubic-bezier(.4,2,.6,1);
+  position: relative;
+}
+
+.prog-inner::after {
+  content: '';
+  position: absolute;
+  top: 2px; left: 4px; right: 4px;
+  height: 5px;
+  background: rgba(255,255,255,0.4);
+  border-radius: 999px;
+}
+
+.stat {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--brown2);
+  border: 2px solid var(--brown);
+  border-radius: 10px;
+  padding: 4px 10px;
+}
+
+.stat.lives { color: var(--red); }
+.stat.xp    { color: var(--yellow); }
+
+/* ===== SCREENS ===== */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ===== START SCREEN ===== */
+#start-screen { padding: 20px 0 32px; }
+
+.game-header {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.game-logo {
+  font-family: 'Bangers', cursive;
+  font-size: 3.8rem;
+  letter-spacing: 3px;
+  line-height: 1;
+  color: var(--yellow);
+  text-shadow:
+    4px 4px 0 var(--orange),
+    8px 8px 0 var(--brown2),
+    0 0 30px rgba(255,200,0,0.5);
+  display: block;
+  margin-bottom: 4px;
+  animation: logoWobble 2s ease-in-out infinite;
+}
+
+@keyframes logoWobble {
+  0%,100% { transform: rotate(-1deg) scale(1); }
+  50%      { transform: rotate(1deg) scale(1.03); }
+}
+
+.game-sub {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+  color: var(--sky);
+  text-shadow: 2px 2px 0 #0056a0;
+}
+
+/* Crash character on start */
+.crash-main {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.crash-main svg {
+  width: 130px;
+  height: 155px;
+  filter: drop-shadow(0 8px 20px rgba(255,107,0,0.5));
+  animation: crashJump 1s cubic-bezier(.4,2,.6,1) infinite alternate;
+}
+
+@keyframes crashJump {
+  from { transform: translateY(0) rotate(-2deg); }
+  to   { transform: translateY(-18px) rotate(2deg); }
+}
+
+/* UNIT GRID */
+.unit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+/* TNT / CRATE CARDS */
+.unit-card {
+  position: relative;
+  border-radius: 12px;
+  padding: 0;
+  cursor: pointer;
+  border: 4px solid;
+  transition: transform 0.15s, box-shadow 0.15s;
+  overflow: hidden;
+  user-select: none;
+}
+
+.unit-card:hover { transform: translateY(-4px) scale(1.03); }
+.unit-card:active { transform: translateY(2px) scale(0.97); }
+
+.unit-card.selected {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 4px var(--yellow), 0 8px 24px rgba(255,215,0,0.5);
+}
+
+/* Crate top strip */
+.crate-top {
+  height: 10px;
+  width: 100%;
+}
+
+/* Crate face */
+.crate-face {
+  padding: 14px 12px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.crate-char { font-size: 2.4rem; line-height: 1; }
+.crate-label {
+  font-family: 'Bangers', cursive;
+  font-size: 1.05rem;
+  letter-spacing: 1.5px;
+  line-height: 1.2;
+}
+.crate-sub {
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.3;
+  opacity: 0.85;
+}
+
+/* Crate wood lines */
+.crate-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Unit 1 — TNT (red) */
+.unit-card[data-u="1"] {
+  border-color: #8B0000;
+  background: linear-gradient(160deg, #CC0000 0%, #8B0000 100%);
+  box-shadow: 0 5px 0 #4a0000;
+  color: white;
+}
+.unit-card[data-u="1"] .crate-top { background: #FF2222; }
+
+/* Unit 2 — Wooden crate (brown) */
+.unit-card[data-u="2"] {
+  border-color: var(--brown2);
+  background: linear-gradient(160deg, #CD853F 0%, #8B4513 100%);
+  box-shadow: 0 5px 0 #3d1a00;
+  color: white;
+}
+.unit-card[data-u="2"] .crate-top { background: #DEB887; }
+
+/* Unit 3 — Wumpa (orange) */
+.unit-card[data-u="3"] {
+  border-color: #CC4400;
+  background: linear-gradient(160deg, #FF8C00 0%, #CC4400 100%);
+  box-shadow: 0 5px 0 #882200;
+  color: white;
+}
+.unit-card[data-u="3"] .crate-top { background: #FFA500; }
+
+/* Unit 4 — Nitro (green) */
+.unit-card[data-u="4"] {
+  border-color: var(--green2);
+  background: linear-gradient(160deg, #32CD32 0%, #006400 100%);
+  box-shadow: 0 5px 0 #003300;
+  color: white;
+}
+.unit-card[data-u="4"] .crate-top { background: #7FFF00; }
+
+/* Todo / Examen — full width */
+.unit-card[data-u="5"] {
+  border-color: var(--purple);
+  background: linear-gradient(160deg, #9B59B6 0%, #6C3483 100%);
+  box-shadow: 0 5px 0 #3d1a5e;
+  color: white;
+  grid-column: 1 / -1;
+}
+.unit-card[data-u="5"] .crate-top { background: #C39BD3; }
+
+.unit-card[data-u="6"] {
+  border-color: #1a5276;
+  background: linear-gradient(160deg, #2471A3 0%, #1a5276 100%);
+  box-shadow: 0 5px 0 #0e2a3b;
+  color: white;
+  grid-column: 1 / -1;
+}
+.unit-card[data-u="6"] .crate-top { background: #5DADE2; }
+
+.unit-card[data-u="7"] {
+  border-color: #7d6608;
+  background: linear-gradient(160deg, #D4AC0D 0%, #9A7D0A 100%);
+  box-shadow: 0 5px 0 #5d4e08;
+  color: #1a0a00;
+  grid-column: 1 / -1;
+}
+.unit-card[data-u="7"] .crate-top { background: #F9E79F; }
+.unit-card[data-u="7"] .crate-label { color: #1a0a00; }
+.unit-card[data-u="7"] .crate-sub { color: #2d1a00; }
+
+.unit-card[data-u="8"] {
+  border-color: #1a6e3a;
+  background: linear-gradient(160deg, #1E8449 0%, #145A32 100%);
+  box-shadow: 0 5px 0 #0b3620;
+  color: white;
+  grid-column: 1 / -1;
+}
+.unit-card[data-u="8"] .crate-top { background: #58D68D; }
+
+/* X mark on TNT */
+.tnt-x {
+  font-family: 'Bangers', cursive;
+  font-size: 2rem;
+  color: white;
+  text-shadow: 2px 2px 0 #4a0000;
+  line-height: 1;
+}
+
+/* SELECTED STAR */
+.unit-card.selected::after {
+  content: '★';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  font-size: 1.4rem;
+  color: var(--yellow);
+  text-shadow: 0 0 8px var(--yellow);
+  animation: starSpin 1s linear infinite;
+}
+
+@keyframes starSpin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* START BUTTON */
+.btn-start {
+  display: block;
+  width: 100%;
+  padding: 18px;
+  background: linear-gradient(180deg, var(--yellow) 0%, var(--orange2) 100%);
+  color: var(--brown2);
+  border: 4px solid var(--brown2);
+  border-bottom: 7px solid var(--brown2);
+  border-radius: 14px;
+  font-family: 'Bangers', cursive;
+  font-size: 1.8rem;
+  letter-spacing: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-shadow: none;
+  box-shadow: 0 4px 20px rgba(255,165,0,0.4);
+}
+
+.btn-start:hover {
+  background: linear-gradient(180deg, #FFE033 0%, var(--yellow) 100%);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(255,165,0,0.5);
+}
+
+.btn-start:active {
+  transform: translateY(3px);
+  border-bottom-width: 3px;
+}
+
+/* ===== QUESTION SCREEN ===== */
+#question-screen { padding-top: 8px; }
+
+.q-label {
+  font-family: 'Bangers', cursive;
+  font-size: 0.85rem;
+  letter-spacing: 2px;
+  color: var(--orange2);
+  margin-bottom: 4px;
+  text-shadow: 1px 1px 0 var(--brown2);
+}
+
+.q-emoji-row {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+}
+
+.q-text {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: white;
+  line-height: 1.5;
+  margin-bottom: 22px;
+  text-shadow: 1px 1px 0 var(--brown2);
+}
+
+/* Q CARD */
+.q-card {
+  background: linear-gradient(160deg, #2d1400 0%, #1a0a00 100%);
+  border: 3px solid var(--orange);
+  border-radius: 18px;
+  padding: 22px 20px;
+  box-shadow: 0 6px 0 var(--brown2), 0 8px 24px rgba(0,0,0,0.5);
+  animation: cardIn 0.35s cubic-bezier(.4,1.4,.6,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.q-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--orange2), transparent);
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(30px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* FLASHCARD */
+.fc-scene {
+  perspective: 900px;
+  cursor: pointer;
+  height: 185px;
+  margin-bottom: 12px;
+}
+
+.fc-inner {
+  position: relative;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.55s cubic-bezier(.4,1.5,.6,1);
+}
+
+.fc-scene.flipped .fc-inner { transform: rotateY(180deg); }
+
+.fc-face {
+  position: absolute; inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 22px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.fc-front {
+  background: linear-gradient(135deg, #003D7A 0%, #001f40 100%);
+  border: 3px solid var(--sky);
+  color: white;
+  box-shadow: 0 4px 0 #001020;
+}
+
+.fc-back {
+  background: linear-gradient(135deg, #004d00 0%, #002800 100%);
+  border: 3px solid var(--green);
+  color: #7FFF00;
+  transform: rotateY(180deg);
+  box-shadow: 0 4px 0 #001500;
+  font-size: 0.92rem;
+}
+
+.fc-hint {
+  text-align: center;
+  color: var(--orange2);
+  font-size: 0.8rem;
+  font-weight: 800;
+  margin-bottom: 10px;
+  letter-spacing: 0.5px;
+}
+
+.fc-btns {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.fc-btn {
+  padding: 14px;
+  border-radius: 12px;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 900;
+  font-size: 0.95rem;
+  cursor: pointer;
+  border: 3px solid;
+  transition: all 0.15s;
+}
+
+.fc-btn.knew {
+  border-color: var(--green);
+  background: rgba(46,204,64,0.15);
+  color: #7FFF00;
+}
+.fc-btn.knew:hover { background: rgba(46,204,64,0.3); }
+
+.fc-btn.no {
+  border-color: var(--red);
+  background: rgba(255,65,54,0.15);
+  color: #FF8080;
+}
+.fc-btn.no:hover { background: rgba(255,65,54,0.3); }
+
+/* OPTIONS */
+.opts { display: flex; flex-direction: column; gap: 10px; }
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border: 3px solid #4a2200;
+  border-radius: 12px;
+  background: #2d1400;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--sand);
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.opt:hover {
+  border-color: var(--orange);
+  background: #3d1a00;
+  transform: translateX(4px);
+}
+
+.opt-lbl {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: #4a2200;
+  border: 2px solid #6b3300;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Bangers', cursive;
+  font-size: 1rem;
+  color: var(--orange2);
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.opt.correct { border-color: var(--green); background: #001a00; color: #7FFF00; }
+.opt.correct .opt-lbl { background: var(--green); border-color: var(--green2); color: white; }
+.opt.wrong { border-color: var(--red); background: #1a0000; color: #FF8080; }
+.opt.wrong .opt-lbl { background: var(--red); border-color: var(--red2); color: white; }
+.opt.show-correct { border-color: var(--green); background: #001a00; color: #7FFF00; }
+.opt.show-correct .opt-lbl { background: var(--green); border-color: var(--green2); color: white; }
+
+/* FEEDBACK */
+.fb {
+  display: none;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-top: 16px;
+}
+.fb.ok  {
+  display: block;
+  background: rgba(46,204,64,0.12);
+  border: 3px solid var(--green);
+}
+.fb.bad {
+  display: block;
+  background: rgba(255,65,54,0.12);
+  border: 3px solid var(--red);
+}
+
+.fb-title {
+  font-family: 'Bangers', cursive;
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+  margin-bottom: 5px;
+}
+.fb-title.ok  { color: #7FFF00; }
+.fb-title.bad { color: #FF8080; }
+
+.fb-exp {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #ccc;
+  line-height: 1.5;
+}
+
+/* CONTINUE BTN */
+.btn-cont {
+  display: none;
+  width: 100%;
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 12px;
+  font-family: 'Bangers', cursive;
+  font-size: 1.3rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border: 3px solid;
+  border-bottom: 6px solid;
+  transition: all 0.15s;
+}
+
+.btn-cont.ok {
+  background: linear-gradient(180deg, #32CD32 0%, #006400 100%);
+  border-color: var(--green2);
+  border-bottom-color: #003300;
+  color: white;
+}
+
+.btn-cont.bad {
+  background: linear-gradient(180deg, #FF4136 0%, #8B0000 100%);
+  border-color: var(--red2);
+  border-bottom-color: #4a0000;
+  color: white;
+}
+
+.btn-cont:active { transform: translateY(3px); border-bottom-width: 3px; }
+
+/* SHAKE */
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  20%     { transform: translateX(-10px); }
+  40%     { transform: translateX(10px); }
+  60%     { transform: translateX(-6px); }
+  80%     { transform: translateX(6px); }
+}
+.shake { animation: shake 0.35s ease; }
+
+/* ===== RESULTS ===== */
+#results-screen {
+  text-align: center;
+  padding: 36px 0;
+}
+
+.res-title {
+  font-family: 'Bangers', cursive;
+  font-size: 3rem;
+  letter-spacing: 3px;
+  color: var(--yellow);
+  text-shadow: 4px 4px 0 var(--orange), 8px 8px 0 var(--brown2);
+  margin-bottom: 6px;
+}
+
+.res-owl {
+  font-size: 5rem;
+  display: block;
+  margin-bottom: 12px;
+  animation: crashJump 0.8s ease-in-out infinite alternate;
+}
+
+.res-sub {
+  color: var(--sand);
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+.res-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.res-box {
+  background: #2d1400;
+  border: 3px solid var(--orange);
+  border-radius: 14px;
+  padding: 18px 10px;
+  box-shadow: 0 4px 0 var(--brown2);
+}
+
+.res-val {
+  font-family: 'Bangers', cursive;
+  font-size: 2.2rem;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+
+.res-val.green  { color: #7FFF00; }
+.res-val.red    { color: #FF8080; }
+.res-val.yellow { color: var(--yellow); }
+
+.res-lbl {
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--orange2);
+}
+
+.btn-retry {
+  background: linear-gradient(180deg, var(--yellow) 0%, var(--orange2) 100%);
+  color: var(--brown2);
+  border: 4px solid var(--brown2);
+  border-bottom: 7px solid var(--brown2);
+  border-radius: 14px;
+  padding: 16px 48px;
+  font-family: 'Bangers', cursive;
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-retry:hover { transform: translateY(-3px); }
+.btn-retry:active { transform: translateY(3px); border-bottom-width: 3px; }
+
+/* CONFETTI / XP EFFECTS */
+.conf {
+  position: fixed;
+  width: 10px; height: 10px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 9999;
+  animation: confDrop var(--dur) ease-in forwards;
+}
+@keyframes confDrop {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(100vh) rotate(540deg); opacity: 0; }
+}
+
+.xp-pop {
+  position: fixed;
+  font-family: 'Bangers', cursive;
+  font-size: 1.6rem;
+  letter-spacing: 2px;
+  color: var(--yellow);
+  pointer-events: none;
+  z-index: 9998;
+  animation: xpRise 0.9s ease forwards;
+  text-shadow: 2px 2px 0 var(--orange);
+}
+@keyframes xpRise {
+  0%   { transform: translateY(0) scale(1); opacity: 1; }
+  60%  { transform: translateY(-60px) scale(1.2); opacity: 1; }
+  100% { transform: translateY(-90px) scale(0.9); opacity: 0; }
+}
+
+.combo-badge {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, var(--orange), var(--yellow));
+  color: var(--brown2);
+  font-family: 'Bangers', cursive;
+  font-size: 1.5rem;
+  letter-spacing: 2px;
+  padding: 10px 28px;
+  border-radius: 999px;
+  pointer-events: none;
+  z-index: 9998;
+  border: 3px solid var(--brown2);
+  box-shadow: 0 4px 0 var(--brown2);
+  animation: badgePop 1.5s ease forwards;
+}
+@keyframes badgePop {
+  0%   { transform: translateX(-50%) scale(0.4); opacity: 0; }
+  20%  { transform: translateX(-50%) scale(1.15); opacity: 1; }
+  70%  { transform: translateX(-50%) scale(1); opacity: 1; }
+  100% { transform: translateX(-50%) scale(0.9); opacity: 0; }
+}
+
+/* float emoji */
+@keyframes floatUp {
+  from { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+  to   { transform: translateY(-120vh) rotate(360deg); opacity: 0; }
+}
+
+/* Wumpa fruit spin on top */
+.wumpa-spin {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1;
+  animation: floatUp linear forwards;
+  font-size: 1.4rem;
+}
+</style>
+</head>
+<body>
+<canvas id="road-canvas"></canvas>
+
+<div id="app">
+
+  <div class="topbar" id="topbar" style="display:none">
+    <button class="close-btn" onclick="goHome()">✕</button>
+    <div class="prog-outer"><div class="prog-inner" id="prog" style="width:0%"></div></div>
+    <div class="stat lives">❤️ <span id="lives-n">5</span></div>
+    <div class="stat xp">⭐ <span id="xp-n">0</span></div>
+  </div>
+
+  <!-- START -->
+  <div id="start-screen" class="screen active">
+    <div class="game-header">
+      <span class="game-logo">CRASH STUDY!</span>
+      <div class="game-sub">🎮 Elige tu nivel y demuestra que eres un crack</div>
+    </div>
+
+    <div class="crash-main">
+      <svg viewBox="0 0 120 150" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="60" cy="105" rx="30" ry="34" fill="#D2691E"/>
+        <ellipse cx="60" cy="110" rx="18" ry="22" fill="#F5DEB3"/>
+        <ellipse cx="60" cy="62" rx="32" ry="30" fill="#D2691E"/>
+        <ellipse cx="60" cy="67" rx="22" ry="19" fill="#F5DEB3"/>
+        <ellipse cx="49" cy="58" rx="9" ry="10" fill="white"/>
+        <ellipse cx="71" cy="58" rx="9" ry="10" fill="white"/>
+        <circle cx="50" cy="60" r="6" fill="#111"/>
+        <circle cx="72" cy="60" r="6" fill="#111"/>
+        <circle cx="52" cy="57" r="2" fill="white"/>
+        <circle cx="74" cy="57" r="2" fill="white"/>
+        <ellipse cx="60" cy="72" rx="5.5" ry="4" fill="#8B4513"/>
+        <circle cx="57.5" cy="72.5" r="1.3" fill="#5C2E00"/>
+        <circle cx="62.5" cy="72.5" r="1.3" fill="#5C2E00"/>
+        <path d="M49 79 Q60 89 71 79" stroke="#5C2E00" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <rect x="54" y="79" width="6" height="6" rx="1.5" fill="white"/>
+        <rect x="61" y="79" width="6" height="6" rx="1.5" fill="white"/>
+        <ellipse cx="31" cy="46" rx="9" ry="11" fill="#D2691E"/>
+        <ellipse cx="31" cy="46" rx="5" ry="7" fill="#F08080"/>
+        <ellipse cx="89" cy="46" rx="9" ry="11" fill="#D2691E"/>
+        <ellipse cx="89" cy="46" rx="5" ry="7" fill="#F08080"/>
+        <path d="M41 49 Q49 44 57 49" stroke="#5C2E00" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <path d="M63 49 Q71 44 79 49" stroke="#5C2E00" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="28" cy="108" rx="9" ry="20" fill="#D2691E" transform="rotate(-18 28 108)"/>
+        <ellipse cx="92" cy="108" rx="9" ry="20" fill="#D2691E" transform="rotate(18 92 108)"/>
+        <circle cx="22" cy="126" r="8" fill="#F5DEB3"/>
+        <circle cx="98" cy="126" r="8" fill="#F5DEB3"/>
+        <ellipse cx="48" cy="136" rx="10" ry="13" fill="#D2691E"/>
+        <ellipse cx="72" cy="136" rx="10" ry="13" fill="#D2691E"/>
+        <ellipse cx="46" cy="147" rx="14" ry="6" fill="#1a1a1a"/>
+        <ellipse cx="74" cy="147" rx="14" ry="6" fill="#1a1a1a"/>
+        <ellipse cx="46" cy="146" rx="12" ry="4" fill="#333"/>
+        <ellipse cx="74" cy="146" rx="12" ry="4" fill="#333"/>
+      </svg>
+    </div>
+
+    <div class="unit-grid">
+
+      <div class="unit-card" id="ucard-1" data-u="1" onclick="selectUnit(1)">
+        <div class="crate-top"></div>
+        <div class="crate-face">
+          <div class="crate-char">💀</div>
+          <div class="tnt-x">TNT</div>
+          <div class="crate-label">UNIDAD 1</div>
+          <div class="crate-sub">XML · DTD · Entidades<br>Editores · Procesadores</div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-2" data-u="2" onclick="selectUnit(2)">
+        <div class="crate-top"></div>
+        <div class="crate-face">
+          <div class="crate-char">🌐</div>
+          <div class="crate-label">UNIDAD 2</div>
+          <div class="crate-sub">HTML5 · CSS · Bootstrap<br>Media Queries · Formularios</div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-3" data-u="3" onclick="selectUnit(3)">
+        <div class="crate-top"></div>
+        <div class="crate-face">
+          <div class="crate-char">🍎</div>
+          <div class="crate-label">UNIDAD 3</div>
+          <div class="crate-sub">JSON · Tipos de datos<br>JSON vs XML · fetch()</div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-4" data-u="4" onclick="selectUnit(4)">
+        <div class="crate-top"></div>
+        <div class="crate-face">
+          <div class="crate-char">☢️</div>
+          <div class="crate-label">UNIDAD 4</div>
+          <div class="crate-sub">XMLHttpRequest · XPath<br>XSL · Transformación</div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-5" data-u="5" onclick="selectUnit(5)">
+        <div class="crate-top"></div>
+        <div class="crate-face" style="flex-direction:row;gap:14px;justify-content:center">
+          <div class="crate-char">🔀</div>
+          <div>
+            <div class="crate-label">TODO MEZCLADO</div>
+            <div class="crate-sub">Unidades 1 + 2 + 3 + 4</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-6" data-u="6" onclick="selectUnit(6)">
+        <div class="crate-top"></div>
+        <div class="crate-face" style="flex-direction:row;gap:14px;justify-content:center">
+          <div class="crate-char">📝</div>
+          <div>
+            <div class="crate-label">PREGUNTAS EXAMEN</div>
+            <div class="crate-sub">Preguntas reales de Moodle</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-7" data-u="7" onclick="selectUnit(7)">
+        <div class="crate-top"></div>
+        <div class="crate-face" style="flex-direction:row;gap:14px;justify-content:center">
+          <div class="crate-char">🎯</div>
+          <div>
+            <div class="crate-label">AUTOEVALUACIÓN 1</div>
+            <div class="crate-sub">20 preguntas del test oficial</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="unit-card" id="ucard-8" data-u="8" onclick="selectUnit(8)">
+        <div class="crate-top"></div>
+        <div class="crate-face" style="flex-direction:row;gap:14px;justify-content:center">
+          <div class="crate-char">🏆</div>
+          <div>
+            <div class="crate-label">AUTOEVALUACIÓN 2</div>
+            <div class="crate-sub">JS · CSS · Media Queries · Bootstrap</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <button class="btn-start" onclick="startQuiz()">🎮 ¡JUGAR!</button>
+  </div>
+
+  <!-- QUESTION -->
+  <div id="question-screen" class="screen">
+    <div class="q-card" id="qc"></div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-screen" class="screen">
+    <span class="res-owl" id="res-owl">🏆</span>
+    <div class="res-title" id="res-title">¡WOAH!</div>
+    <div class="res-sub" id="res-sub">Has completado el nivel</div>
+    <div class="res-grid">
+      <div class="res-box"><div class="res-val green" id="res-ok">0</div><div class="res-lbl">Correctas</div></div>
+      <div class="res-box"><div class="res-val red"   id="res-ko">0</div><div class="res-lbl">Incorrectas</div></div>
+      <div class="res-box"><div class="res-val yellow" id="res-xp">0</div><div class="res-lbl">Wumpas</div></div>
+    </div>
+    <button class="btn-retry" onclick="goHome()">🔄 VOLVER AL MAPA</button>
+  </div>
+
+</div>
+
+<script>
+// ===== JUNGLE ROAD CANVAS =====
+const cv = document.getElementById('road-canvas');
+const cx = cv.getContext('2d');
+
+function resizeCv() { cv.width = innerWidth; cv.height = innerHeight; }
+window.addEventListener('resize', resizeCv);
+resizeCv();
+
+let roadOffset = 0;
+function drawRoad() {
+  const w = cv.width, h = cv.height;
+  cx.clearRect(0, 0, w, h);
+
+  // Sky gradient
+  const skyG = cx.createLinearGradient(0, 0, 0, h * 0.55);
+  skyG.addColorStop(0, '#001a3d');
+  skyG.addColorStop(1, '#003d7a');
+  cx.fillStyle = skyG;
+  cx.fillRect(0, 0, w, h * 0.55);
+
+  // Stars
+  cx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 60; i++) {
+    const sx = (i * 137 + 50) % w;
+    const sy = (i * 89 + 20) % (h * 0.45);
+    const ss = 0.5 + (i % 3) * 0.5;
+    cx.beginPath();
+    cx.arc(sx, sy, ss, 0, Math.PI * 2);
+    cx.fill();
+  }
+
+  // Moon
+  cx.fillStyle = '#FFF5C0';
+  cx.beginPath();
+  cx.arc(w * 0.85, h * 0.1, 28, 0, Math.PI * 2);
+  cx.fill();
+  cx.fillStyle = '#001a3d';
+  cx.beginPath();
+  cx.arc(w * 0.85 + 10, h * 0.1 - 5, 22, 0, Math.PI * 2);
+  cx.fill();
+
+  // Jungle silhouette
+  cx.fillStyle = '#002200';
+  for (let i = 0; i < w; i += 40) {
+    const th = 60 + Math.sin(i * 0.05) * 30 + Math.sin(i * 0.12) * 20;
+    cx.beginPath();
+    cx.moveTo(i, h * 0.55);
+    cx.lineTo(i + 20, h * 0.55 - th);
+    cx.lineTo(i + 40, h * 0.55);
+    cx.fill();
+  }
+  cx.fillStyle = '#003300';
+  for (let i = 0; i < w; i += 30) {
+    const th = 40 + Math.sin(i * 0.07 + 1) * 20;
+    cx.beginPath();
+    cx.moveTo(i, h * 0.55);
+    cx.lineTo(i + 15, h * 0.55 - th);
+    cx.lineTo(i + 30, h * 0.55);
+    cx.fill();
+  }
+
+  // Ground
+  const groundG = cx.createLinearGradient(0, h * 0.55, 0, h);
+  groundG.addColorStop(0, '#2d4a1e');
+  groundG.addColorStop(0.3, '#1a2e10');
+  groundG.addColorStop(1, '#0d1a08');
+  cx.fillStyle = groundG;
+  cx.fillRect(0, h * 0.55, w, h * 0.45);
+
+  // Road
+  const roadTop = h * 0.58, roadBot = h;
+  const roadW = w * 0.55;
+  cx.fillStyle = '#2a1a00';
+  cx.beginPath();
+  cx.moveTo(w/2 - roadW*0.35, roadTop);
+  cx.lineTo(w/2 + roadW*0.35, roadTop);
+  cx.lineTo(w/2 + roadW*0.5, roadBot);
+  cx.lineTo(w/2 - roadW*0.5, roadBot);
+  cx.fill();
+
+  // Road border lines
+  cx.strokeStyle = '#FF9500';
+  cx.lineWidth = 3;
+  cx.setLineDash([30, 20]);
+  cx.lineDashOffset = -roadOffset;
+  cx.beginPath();
+  cx.moveTo(w/2, roadTop);
+  cx.lineTo(w/2, roadBot);
+  cx.stroke();
+  cx.setLineDash([]);
+
+  // Road dashes center
+  cx.strokeStyle = 'rgba(255,255,255,0.4)';
+  cx.lineWidth = 2;
+  cx.setLineDash([20, 15]);
+  cx.lineDashOffset = -roadOffset;
+  cx.beginPath();
+  cx.moveTo(w/2 - roadW*0.1, roadTop);
+  cx.lineTo(w/2 - roadW*0.18, roadBot);
+  cx.stroke();
+  cx.beginPath();
+  cx.moveTo(w/2 + roadW*0.1, roadTop);
+  cx.lineTo(w/2 + roadW*0.18, roadBot);
+  cx.stroke();
+  cx.setLineDash([]);
+
+  roadOffset = (roadOffset + 1.2) % 50;
+  requestAnimationFrame(drawRoad);
+}
+drawRoad();
+
+// ===== CRASH-STYLE AUDIO ENGINE =====
+let audioCtx;
+function getAC() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function note(freq, type, start, dur, vol, ac) {
+  const o = ac.createOscillator();
+  const g = ac.createGain();
+  o.connect(g); g.connect(ac.destination);
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, start);
+  g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+  o.start(start); o.stop(start + dur + 0.01);
+}
+
+// Crash N.Sane menu select sound
+function playSelect() {
+  try {
+    const ac = getAC(), t = ac.currentTime;
+    note(440, 'square', t,      0.05, 0.2, ac);
+    note(660, 'square', t+0.05, 0.05, 0.2, ac);
+    note(880, 'square', t+0.1,  0.08, 0.2, ac);
+  } catch(e){}
+}
+
+// Crash box smash sound
+function playBoxSmash() {
+  try {
+    const ac = getAC(), t = ac.currentTime;
+    // Thud
+    const buf = ac.createBuffer(1, ac.sampleRate * 0.15, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/d.length, 2);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain();
+    src.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(0.4, t);
+    src.start(t);
+    // Pitch
+    note(200, 'sawtooth', t, 0.1, 0.15, ac);
+    note(100, 'square',   t+0.05, 0.1, 0.1, ac);
+  } catch(e){}
+}
+
+// Correct = Wumpa fruit collect
+function playOk() {
+  try {
+    const ac = getAC(), t = ac.currentTime;
+    note(523, 'sine', t,      0.08, 0.18, ac);
+    note(659, 'sine', t+0.07, 0.08, 0.18, ac);
+    note(784, 'sine', t+0.14, 0.08, 0.18, ac);
+    note(1047,'sine', t+0.21, 0.12, 0.18, ac);
+  } catch(e){}
+}
+
+// Wrong = TNT explosion
+function playBad() {
+  try {
+    const ac = getAC(), t = ac.currentTime;
+    const buf = ac.createBuffer(1, ac.sampleRate * 0.3, ac.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i/d.length, 1.5);
+    const src = ac.createBufferSource();
+    src.buffer = buf;
+    const g = ac.createGain();
+    src.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(0.5, t); src.start(t);
+    note(150, 'sawtooth', t,    0.15, 0.2, ac);
+    note(80,  'square',   t+0.1,0.2,  0.15, ac);
+  } catch(e){}
+}
+
+// Flip card sound
+function playFlip() {
+  try {
+    const ac = getAC(), t = ac.currentTime;
+    note(600, 'sine', t,     0.06, 0.12, ac);
+    note(800, 'sine', t+0.06,0.06, 0.1,  ac);
+  } catch(e){}
+}
+
+// Victory music (N.Sane style)
+function playFinish() {
+  try {
+    const ac = getAC();
+    const melody = [
+      [523,0],[659,0.15],[784,0.3],[1047,0.45],
+      [784,0.65],[880,0.8],[1047,0.95],[784,1.15],
+      [659,1.35],[523,1.5]
+    ];
+    melody.forEach(([f,d]) => note(f,'square', ac.currentTime+d, 0.12, 0.15, ac));
+  } catch(e){}
+}
+
+// Background music (jungle theme loop)
+let bgMusicInterval = null;
+let bgPlaying = false;
+
+function playBgMusic() {
+  if (bgPlaying) return;
+  bgPlaying = true;
+  const ac = getAC();
+  // N.Sane Trilogy jungle theme approximation
+  const pattern = [
+    [196,0],[220,0.2],[247,0.4],[262,0.6],
+    [294,0.8],[330,1.0],[392,1.2],[330,1.4],
+    [294,1.6],[262,1.8],[247,2.0],[220,2.2],
+    [196,2.4],[196,2.7]
+  ];
+
+  function playLoop() {
+    if (!bgPlaying) return;
+    const t = ac.currentTime;
+    pattern.forEach(([f, d]) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      const filt = ac.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 800;
+      o.connect(filt); filt.connect(g); g.connect(ac.destination);
+      o.type = 'square';
+      o.frequency.value = f;
+      g.gain.setValueAtTime(0, t + d);
+      g.gain.linearRampToValueAtTime(0.04, t + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d + 0.18);
+      o.start(t + d); o.stop(t + d + 0.2);
+    });
+    // Bass
+    [98, 110, 123, 131].forEach((f, i) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.connect(g); g.connect(ac.destination);
+      o.type = 'triangle';
+      o.frequency.value = f;
+      const bt = t + i * 0.7;
+      g.gain.setValueAtTime(0.05, bt);
+      g.gain.exponentialRampToValueAtTime(0.001, bt + 0.5);
+      o.start(bt); o.stop(bt + 0.55);
+    });
+    bgMusicInterval = setTimeout(playLoop, 3000);
+  }
+  playLoop();
+}
+
+function stopBgMusic() {
+  bgPlaying = false;
+  if (bgMusicInterval) clearTimeout(bgMusicInterval);
+}
+
+// ===== FLOATING WUMPA FRUITS =====
+let floatT = null;
+const EMOJIS = {
+  u1:['💀','📜','🔤','🌳','⚙️'],
+  html:['🌐','📄','🏷️','🔗','💻'],
+  css:['🎨','✨','🌈','🖌️','💅'],
+  boxmodel:['📦','🔲','📐','🧱','📏'],
+  media:['📱','💻','🖥️','📡','🔄'],
+  bootstrap:['⚡','🚀','🎯','🧩','💡'],
+  form:['📝','✅','📋','🖊️','🔘'],
+  xhtml:['📜','🔒','⚙️','📌','🧩'],
+  tabla:['📊','📋','🗂️','🔢','🗃️'],
+  lista:['📋','🔢','📌','✅','📝'],
+  json:['📦','🗂️','⚙️','🔑','💾'],
+  xml:['📡','🔍','🔧','📜','🔄'],
+  default:['🍎','🍎','💥','⭐','🎮']
+};
+
+function startFloat(key) {
+  if (floatT) clearInterval(floatT);
+  const pool = EMOJIS[key] || EMOJIS.default;
+  function spawn() {
+    const e = document.createElement('span');
+    e.className = 'wumpa-spin';
+    e.textContent = pool[Math.floor(Math.random() * pool.length)];
+    e.style.cssText = `left:${4+Math.random()*90}%;top:105%;font-size:${1.2+Math.random()*1}rem;animation-duration:${5+Math.random()*6}s;`;
+    document.body.appendChild(e);
+    setTimeout(() => e.remove(), 12000);
+  }
+  spawn();
+  floatT = setInterval(spawn, 1600);
+}
+
+const QS = [
+  // FLASHCARDS
+  {type:'fc',emoji:'🌐',topic:'Historia HTML',ek:'html',
+   front:'¿Quién creó HTML, cuándo y por qué?',
+   back:'Tim Berners-Lee en el CERN (1991).\nNecesitaba que los científicos compartieran información mediante hipertexto.'},
+  {type:'fc',emoji:'📅',topic:'Evolución HTML',ek:'html',
+   front:'Ordena la evolución de HTML: HTML5 estándar, HTML 4.01, HTML5 base, HTML 2.0',
+   back:'1995 → HTML 2.0\n1999 → HTML 4.01\n2008 → HTML5 (base)\n2014 → HTML5 (estándar oficial)'},
+  {type:'fc',emoji:'📦',topic:'Box Model — capas',ek:'boxmodel',
+   front:'¿Cuáles son las 4 capas del Box Model de DENTRO hacia FUERA?',
+   back:'1. Content (contenido)\n2. Padding (relleno interno)\n3. Border (borde)\n4. Margin (espacio externo)'},
+  {type:'fc',emoji:'📐',topic:'Box Model — cálculo',ek:'boxmodel',
+   front:'¿Cómo se calcula el tamaño TOTAL de un elemento con: width=200px, padding=10px, border=2px, margin=20px?',
+   back:'200 + (10×2) + (2×2) + (20×2)\n= 200 + 20 + 4 + 40\n= 264px total'},
+  {type:'fc',emoji:'🔲',topic:'box-sizing',ek:'boxmodel',
+   front:'¿Qué diferencia hay entre content-box y border-box?',
+   back:'content-box (defecto): width = solo contenido. El padding y border se SUMAN encima.\n\nborder-box: width ya incluye contenido + padding + border. Más fácil de usar.'},
+  {type:'fc',emoji:'📱',topic:'Media Query',ek:'media',
+   front:'¿Qué es una Media Query y para qué sirve? ¿Cuál es su sintaxis básica?',
+   back:'Técnica CSS para aplicar estilos según el dispositivo (tamaño, orientación, resolución).\n\n@media (condición) {\n  /* CSS aquí */\n}'},
+  {type:'fc',emoji:'🎯',topic:'Media Query — operadores',ek:'media',
+   front:'¿Qué hacen los operadores AND, NOT y ONLY en las Media Queries?',
+   back:'AND → combina condiciones (las dos deben cumplirse)\nNOT → excluye una condición\nONLY → aplica solo si se cumple exactamente'},
+  {type:'fc',emoji:'⚡',topic:'Bootstrap',ek:'bootstrap',
+   front:'¿Qué es Bootstrap, qué tecnologías usa y para qué sirve?',
+   back:'Framework gratuito y open source (HTML + CSS + JS).\nSirve para crear webs rápidas y responsive sin empezar desde cero.\nIncluye: navbar, grid, botones, carruseles...'},
+  {type:'fc',emoji:'🎨',topic:'CSS — ventajas',ek:'css',
+   front:'¿Cuáles son las 4 ventajas principales de CSS?',
+   back:'1. Separación → HTML=contenido, CSS=diseño\n2. Consistencia → mismo estilo en toda la web\n3. Rendimiento → CSS externo se cachea\n4. Flexibilidad → control total del diseño y responsive'},
+  {type:'fc',emoji:'🎭',topic:'Pseudoclases CSS',ek:'css',
+   front:'¿Qué pseudoclases CSS existen y cuándo se activa cada una?',
+   back:':hover → ratón encima del elemento\n:active → mientras se está pulsando\n:focus → elemento enfocado/seleccionado\n:link → enlace no visitado todavía'},
+  {type:'fc',emoji:'📜',topic:'XHTML — reglas',ek:'xhtml',
+   front:'¿Cuáles son las reglas estrictas de XHTML que NO tiene HTML normal?',
+   back:'• Todo en minúsculas\n• Todas las etiquetas se cierran\n• Bien anidadas (no cruzadas)\n• Atributos siempre entre comillas\n• Todos los atributos con valor'},
+  {type:'fc',emoji:'🏷️',topic:'Atributos HTML globales',ek:'html',
+   front:'¿Qué hacen los atributos: id, class, style, title, name?',
+   back:'id → identificador único en la página\nclass → grupo para CSS/JS (reutilizable)\nstyle → CSS directo en el elemento\ntitle → texto emergente al pasar el ratón\nname → nombre del campo (formularios)'},
+
+  // TEST
+  {type:'test',emoji:'🏗️',topic:'Estructura HTML',ek:'html',
+   q:'¿Qué parte del HTML contiene el contenido VISIBLE por el usuario?',
+   opts:['<head>','<meta>','<html>','<body>'],
+   ok:3,
+   exp:'<body> es lo que ve el usuario. <head> tiene metadatos, título, CSS y JS — nada visible en pantalla.'},
+  {type:'test',emoji:'📋',topic:'Listas HTML',ek:'lista',
+   q:'¿Qué etiqueta crea una lista ORDENADA (con números)?',
+   opts:['<ul>','<li>','<ol>','<dl>'],
+   ok:2,
+   exp:'<ol> = ordered list → lista numerada automáticamente.\n<ul> = unordered list → lista con viñetas.\n<li> = cada elemento de cualquier lista.'},
+  {type:'test',emoji:'📊',topic:'Tablas HTML',ek:'tabla',
+   q:'¿Qué etiqueta HTML define la FILA de una tabla?',
+   opts:['<td>','<tr>','<th>','<tbody>'],
+   ok:1,
+   exp:'<tr> = table row → fila. <td> = celda normal. <th> = celda de cabecera (negrita). <table> = contenedor.'},
+  {type:'test',emoji:'📊',topic:'Tablas HTML',ek:'tabla',
+   q:'¿Cuáles son las 3 secciones estructurales de una tabla HTML?',
+   opts:['<top>, <mid>, <bot>','<thead>, <tbody>, <tfoot>','<header>, <body>, <footer>','<title>, <body>, <end>'],
+   ok:1,
+   exp:'<thead> = cabecera, <tbody> = cuerpo de datos, <tfoot> = pie de tabla. Son opcionales pero muy recomendados.'},
+  {type:'test',emoji:'📝',topic:'Formularios — input',ek:'form',
+   q:'¿Qué input type permite elegir UNA sola opción de un grupo?',
+   opts:['checkbox','text','radio','file'],
+   ok:2,
+   exp:'type="radio" → solo se puede elegir una opción del grupo (mismo name). type="checkbox" → se pueden marcar múltiples.'},
+  {type:'test',emoji:'📝',topic:'Formularios — textarea',ek:'form',
+   q:'¿Qué elemento HTML se usa para texto LARGO de varias líneas?',
+   opts:['<input type="text">','<input type="long">','<textarea>','<multiline>'],
+   ok:2,
+   exp:'<textarea> acepta texto de múltiples líneas. <input type="text"> es solo una línea corta.'},
+  {type:'test',emoji:'📝',topic:'Formularios — select',ek:'form',
+   q:'¿Qué elemento HTML crea un menú DESPLEGABLE?',
+   opts:['<input type="dropdown">','<select>','<datalist>','<menu>'],
+   ok:1,
+   exp:'<select> crea el desplegable. Las opciones van dentro con <option>. Se pueden agrupar con <optgroup>.'},
+  {type:'test',emoji:'🎨',topic:'CSS — color texto',ek:'css',
+   q:'¿Qué propiedad CSS cambia el color del TEXTO?',
+   opts:['background-color','font-color','text-color','color'],
+   ok:3,
+   exp:'color: red; cambia el texto. background-color cambia el fondo. font-color y text-color NO EXISTEN en CSS.'},
+  {type:'test',emoji:'🖥️',topic:'CSS — display',ek:'css',
+   q:'¿Qué valor de display hace que un elemento ocupe TODA la línea y fuerce salto?',
+   opts:['inline','none','inline-block','block'],
+   ok:3,
+   exp:'block ocupa todo el ancho y pone el siguiente elemento en nueva línea. inline solo ocupa su contenido. none oculta el elemento.'},
+  {type:'test',emoji:'📦',topic:'Box Model — margin',ek:'boxmodel',
+   q:'¿Cuál es la característica del Margin en el Box Model?',
+   opts:[
+     'Es el espacio interior entre contenido y borde',
+     'Es el borde visible alrededor del elemento',
+     'Es transparente y separa elementos entre sí por fuera',
+     'Tiene color propio configurable'
+   ],
+   ok:2,
+   exp:'Margin = espacio EXTERNO entre elementos. Es siempre transparente (no tiene color). Padding = espacio interno.'},
+  {type:'test',emoji:'📏',topic:'Media Query — min/max',ek:'media',
+   q:'¿Qué media query aplica estilos SOLO en pantallas de 768px o más?',
+   opts:['@media (max-width: 768px)','@media (width: 768px)','@media (min-width: 768px)','@media (screen >= 768px)'],
+   ok:2,
+   exp:'min-width: 768px = "pantalla de al menos 768px" → tablets y desktop.\nmax-width: 768px = "hasta 768px" → móviles.'},
+  {type:'test',emoji:'📱',topic:'Meta viewport',ek:'media',
+   q:'¿Para qué sirve <meta name="viewport" content="width=device-width, initial-scale=1.0">?',
+   opts:[
+     'Define el título de la pestaña del navegador',
+     'Enlaza el archivo CSS externo',
+     'Adapta el ancho de la web al dispositivo y controla el zoom',
+     'Cambia el idioma de la página'
+   ],
+   ok:2,
+   exp:'Sin viewport, los móviles muestran la web como desktop (muy pequeña). Esta etiqueta adapta el ancho al dispositivo real.'},
+  {type:'test',emoji:'⚡',topic:'Bootstrap — Grid',ek:'bootstrap',
+   q:'¿En qué está basado el sistema de rejilla (Grid) de Bootstrap?',
+   opts:[
+     'Tablas HTML clásicas',
+     'Filas (rows) y columnas (columns) responsive',
+     'Flexbox manual con CSS puro',
+     'Media queries escritas a mano por el developer'
+   ],
+   ok:1,
+   exp:'Bootstrap Grid usa rows y columns que se adaptan automáticamente a móvil, tablet y desktop sin escribir media queries.'},
+  {type:'test',emoji:'🔗',topic:'HTML — id vs class',ek:'html',
+   q:'¿Cuál es la diferencia correcta entre id y class en HTML?',
+   opts:[
+     'id puede repetirse; class es único en la página',
+     'id es solo para CSS; class es solo para JavaScript',
+     'id es único en la página; class puede usarse en varios elementos',
+     'Son exactamente lo mismo, solo cambia la sintaxis'
+   ],
+   ok:2,
+   exp:'id = identificador único (solo 1 por página). En CSS → #miId. class = reutilizable en varios elementos. En CSS → .miClass.'},
+  {type:'test',emoji:'📜',topic:'XHTML — origen',ek:'xhtml',
+   q:'¿Por qué surgió XHTML?',
+   opts:[
+     'Para añadir vídeo y audio a las webs',
+     'Para crear apps móviles nativas',
+     'Por incompatibilidad de HTML 4.01 con herramientas XML',
+     'Para reemplazar CSS con estilos en el HTML'
+   ],
+   ok:2,
+   exp:'XHTML surgió porque HTML 4.01 era incompatible con herramientas XML. Combina HTML con las reglas estrictas de XML.'},
+  {type:'test',emoji:'🎭',topic:'Pseudoclases — hover',ek:'css',
+   q:'¿Qué pseudoclase CSS se activa cuando el RATÓN está encima de un elemento?',
+   opts:[':active',':link',':hover',':focus'],
+   ok:2,
+   exp:':hover = ratón encima. :active = mientras pulsas. :focus = mientras está seleccionado. :link = enlace no visitado.'},
+  {type:'test',emoji:'🏷️',topic:'Etiquetas — semántica',ek:'html',
+   q:'¿Qué etiqueta HTML tiene significado semántico de "texto importante" (además de poner negrita)?',
+   opts:['<b>','<u>','<strong>','<em>'],
+   ok:2,
+   exp:'<strong> = texto importante semánticamente (mejor para SEO y accesibilidad). <b> = solo negrita visual sin significado.'},
+  {type:'test',emoji:'📱',topic:'Media Query — orientación',ek:'media',
+   q:'¿Qué valor de orientation detecta el móvil en posición VERTICAL (como se sujeta normalmente)?',
+   opts:['landscape','vertical','horizontal','portrait'],
+   ok:3,
+   exp:'portrait = orientación vertical (retrato). landscape = horizontal (apaisado). "vertical" y "horizontal" NO existen como valores.'},
+  {type:'test',emoji:'🎨',topic:'CSS — colores válidos',ek:'css',
+   q:'¿Cuál de estos es un formato de color VÁLIDO en CSS?',
+   opts:['color(255,0,0)','rgba[255,0,0,1]','rgb(255, 0, 0)','hsl{240,50%,50%}'],
+   ok:2,
+   exp:'rgb(255, 0, 0) es correcto (paréntesis). También válidos: #FF0000 (hexadecimal) y nombres como "red". Los corchetes y llaves son incorrectos.'},
+
+  // ── UNIDAD 3: JSON ──
+  {type:'fc',emoji:'📦',topic:'JSON — características',ek:'json',
+   front:'¿Cuáles son las características principales de JSON?',
+   back:'• Formato de datos ligero\n• Comillas dobles OBLIGATORIAS en claves y strings\n• Un error de coma o ":" rompe el archivo\n• Las claves siempre van entre comillas (distinto a JS)\n• Puede contener cualquier tipo de dato válido'},
+  {type:'fc',emoji:'🔑',topic:'JSON — tipos de valores',ek:'json',
+   front:'¿Qué tipos de valores puede tener un campo JSON?',
+   back:'• string → "texto"\n• número → 30\n• booleano → true / false\n• null → null\n• objeto → { ... }\n• array → [ ... ]'},
+  {type:'fc',emoji:'🗂️',topic:'JSON vs XML',ek:'json',
+   front:'¿Cuáles son las ventajas de JSON frente a XML?',
+   back:'JSON: fácil de leer, más rápido, más ligero, parseo rápido, compatible con JS\n\nXML: más estructurado, soporta datos complejos, compatible con cualquier lenguaje, reglas estrictas'},
+  {type:'fc',emoji:'💾',topic:'JSON — sintaxis',ek:'json',
+   front:'¿Cómo es la estructura básica de un JSON? ¿Y si hay varios objetos?',
+   back:'Un objeto: empieza y termina con { }\nClave : valor, separados por comas\n\nSi hay varios objetos → van dentro de un array [ ]\n\nEjemplo:\n[\n  {"nombre":"Ana"},\n  {"nombre":"Luis"}\n]'},
+  {type:'fc',emoji:'🌐',topic:'JSON — fetch()',ek:'json',
+   front:'¿Cuáles son los pasos para cargar un JSON EXTERNO con fetch()?',
+   back:'1. fetch("archivo.json")\n2. .then(r => r.json())\n3. Recorrer los datos con for\n4. Insertar en HTML\n5. .catch() para manejar errores'},
+  {type:'test',emoji:'📦',topic:'JSON — características',ek:'json',
+   q:'¿Qué pasa si hay un error de coma o ":" en un archivo JSON?',
+   opts:[
+     'Se ignora y el archivo sigue funcionando',
+     'Solo afecta al objeto donde está el error',
+     'Rompe todo el archivo y deja de ser válido',
+     'El navegador lo corrige automáticamente'
+   ],
+   ok:2,
+   exp:'JSON es muy estricto. Un solo error de sintaxis (coma de más, coma de menos, : incorrecto) invalida TODO el archivo.'},
+  {type:'test',emoji:'🔑',topic:'JSON — claves',ek:'json',
+   q:'¿Cómo deben escribirse SIEMPRE las claves en JSON?',
+   opts:[
+     'Sin comillas, como en JavaScript normal',
+     'Entre comillas simples \'clave\'',
+     'Entre comillas dobles "clave"',
+     'Solo si el valor es un string'
+   ],
+   ok:2,
+   exp:'En JSON las claves SIEMPRE van entre comillas dobles: "nombre": "David". Es diferente a JS donde puedes poner nombre: "David" sin comillas.'},
+  {type:'test',emoji:'⚙️',topic:'JSON — tipos de valores',ek:'json',
+   q:'¿Cuál de estos es un valor de tipo BOOLEANO en JSON?',
+   opts:['"true"','1','true','yes'],
+   ok:2,
+   exp:'Los booleanos en JSON son true o false (sin comillas). "true" con comillas sería un string. 1 es número. "yes" no existe como booleano.'},
+  {type:'test',emoji:'🗂️',topic:'JSON vs XML',ek:'json',
+   q:'¿Cuál es la principal VENTAJA de XML sobre JSON?',
+   opts:[
+     'XML es más rápido de procesar',
+     'XML es más ligero que JSON',
+     'XML soporta datos complejos y es más estructurado',
+     'XML es compatible solo con JavaScript'
+   ],
+   ok:2,
+   exp:'XML es más estructurado, soporta datos complejos, es reutilizable y compatible con cualquier lenguaje. Su desventaja: más lento y pesado que JSON.'},
+  {type:'test',emoji:'💾',topic:'JSON — estructura',ek:'json',
+   q:'¿Cómo se almacenan VARIOS objetos en un archivo JSON?',
+   opts:[
+     'Separados por punto y coma ;',
+     'Dentro de un array [ ]',
+     'Dentro de otro objeto { }',
+     'Cada uno en un archivo distinto'
+   ],
+   ok:1,
+   exp:'Si hay varios objetos en JSON, van dentro de un array: [ {"id":1}, {"id":2} ]. Un JSON solo puede tener un elemento raíz.'},
+  {type:'test',emoji:'🌐',topic:'JSON — fetch()',ek:'json',
+   q:'¿Para qué sirve fetch() en JavaScript con JSON?',
+   opts:[
+     'Para crear archivos JSON nuevos',
+     'Para validar la sintaxis del JSON',
+     'Para cargar un archivo JSON externo de forma asíncrona',
+     'Para convertir HTML a JSON'
+   ],
+   ok:2,
+   exp:'fetch("archivo.json") carga el JSON desde un archivo externo. Luego .then(r => r.json()) lo convierte a objeto JS usable.'},
+  {type:'test',emoji:'📋',topic:'JSON — null',ek:'json',
+   q:'¿Qué significa el valor null en JSON?',
+   opts:[
+     'El campo tiene el valor cero (0)',
+     'El campo tiene el texto "null"',
+     'El campo está vacío sin valor definido',
+     'El campo no existe en el objeto'
+   ],
+   ok:2,
+   exp:'null en JSON indica que el campo existe pero no tiene valor. Ejemplo: "dato": null. Es distinto a 0 (número) o "" (string vacío).'},
+  {type:'test',emoji:'🔄',topic:'JSON vs XML — desventajas',ek:'json',
+   q:'¿Cuál es una DESVENTAJA de JSON frente a XML?',
+   opts:[
+     'JSON no es compatible con JavaScript',
+     'JSON es más lento de parsear',
+     'JSON no soporta grandes cargas de datos complejos',
+     'JSON requiere comillas simples'
+   ],
+   ok:2,
+   exp:'JSON no está diseñado para datos muy complejos ni es extensible. Para estructuras muy complejas, XML con sus reglas estrictas puede ser más adecuado.'},
+];
+
+// ── UNIDAD 1: Lenguajes de Marcas ──
+const QS1 = [
+  {type:'fc',emoji:'🏷️',topic:'Etiquetas',ek:'u1',unit:1,
+   front:'¿Qué es una etiqueta en lenguajes de marcas y cuál es su sintaxis?',
+   back:'Marca que indica cómo interpretar el contenido.\n\nSintaxis: <etiqueta_inicio> contenido </etiqueta_fin>\n\nEjemplo: <u>texto subrayado</u>'},
+  {type:'fc',emoji:'🖊️',topic:'Editor vs Procesador',ek:'u1',unit:1,
+   front:'¿Cuál es la diferencia entre un EDITOR y un PROCESADOR de marcas?',
+   back:'Editor → crea y modifica documentos (VS Code, Notepad++, Sublime Text)\n\nProcesador → lee, analiza y TRANSFORMA documentos (ej: el navegador web)'},
+  {type:'fc',emoji:'📄',topic:'XML — estructura',ek:'u1',unit:1,
+   front:'¿Cuáles son las 2 partes de un documento XML?',
+   back:'1. Prólogo → indica versión y codificación:\n   <?xml version="1.0"?>\n\n2. Ejemplar → contiene los datos estructurados dentro de las etiquetas'},
+  {type:'fc',emoji:'🔤',topic:'Entidades XML',ek:'u1',unit:1,
+   front:'¿Qué son las entidades XML y cuáles son las 5 básicas?',
+   back:'Representan caracteres especiales con &nombre;\n\n&lt;  →  <\n&gt;  →  >\n&amp; →  &\n&apos; → \'\n&quot; → "'},
+  {type:'fc',emoji:'🌳',topic:'Reglas XML',ek:'u1',unit:1,
+   front:'¿Cuáles son las reglas fundamentales de XML?',
+   back:'• Solo UN elemento raíz\n• Todas las etiquetas abren y cierran\n• Etiquetas vacías: <elemento />\n• Bien anidadas (no cruzadas)\n• Case sensitive (mayús ≠ minús)\n• Valores de atributos entre comillas'},
+  {type:'fc',emoji:'🏷️',topic:'Atributos XML',ek:'u1',unit:1,
+   front:'¿Qué son los atributos XML y cómo se usan?',
+   back:'Pares nombre="valor" en la etiqueta de APERTURA.\nAñaden información adicional al elemento.\n\n<elemento atrib1="v1" atrib2="v2"></elemento>\n\n→ Siempre entre comillas'},
+  {type:'test',emoji:'📄',topic:'XML — prólogo',ek:'u1',unit:1,
+   q:'¿Qué indica la línea <?xml version="1.0"?> en un documento XML?',
+   opts:[
+     'El elemento raíz del documento',
+     'El prólogo: versión y codificación del XML',
+     'Un comentario del documento',
+     'Una entidad personalizada'
+   ],
+   ok:1,
+   exp:'El prólogo es la primera línea del XML e indica la versión y codificación. Va siempre al principio del documento.'},
+  {type:'test',emoji:'⚙️',topic:'Procesador XML',ek:'u1',unit:1,
+   q:'¿Qué herramienta LEE y TRANSFORMA documentos XML?',
+   opts:['Un editor de texto','Un procesador','Una entidad','Un atributo'],
+   ok:1,
+   exp:'El procesador lee, analiza y transforma documentos. Ejemplo clásico: el navegador web. El editor solo crea/modifica.'},
+  {type:'test',emoji:'🔤',topic:'Entidades XML',ek:'u1',unit:1,
+   q:'¿Qué entidad XML representa el carácter "<"?',
+   opts:['&amp;','&gt;','&lt;','&quot;'],
+   ok:2,
+   exp:'&lt; representa "<" (less than / menor que). &gt; representa ">". &amp; representa "&".'},
+  {type:'test',emoji:'🏷️',topic:'Atributos XML — posición',ek:'u1',unit:1,
+   q:'¿Dónde van los atributos en XML?',
+   opts:[
+     'En la etiqueta de cierre',
+     'En el prólogo',
+     'En la etiqueta de apertura',
+     'En los comentarios'
+   ],
+   ok:2,
+   exp:'Los atributos van SIEMPRE en la etiqueta de apertura: <elemento atributo="valor">. Nunca en el cierre.'},
+  {type:'test',emoji:'🌳',topic:'XML — elemento raíz',ek:'u1',unit:1,
+   q:'¿Cuántos elementos raíz puede tener un documento XML?',
+   opts:['Tantos como necesite','Dos: datos y metadatos','Solo uno','Ninguno'],
+   ok:2,
+   exp:'Regla fundamental de XML: solo puede haber UN elemento raíz que contenga a todos los demás nodos del documento.'},
+  {type:'test',emoji:'💬',topic:'XML — comentarios',ek:'u1',unit:1,
+   q:'¿Dónde NO puede ir un comentario XML?',
+   opts:[
+     'Dentro del ejemplar',
+     'Antes del prólogo o dentro de una etiqueta',
+     'Después del elemento raíz',
+     'Al final del documento'
+   ],
+   ok:1,
+   exp:'Los comentarios XML <!-- ... --> NO pueden ir ANTES del prólogo ni DENTRO de una etiqueta. En cualquier otro lugar sí.'},
+  {type:'test',emoji:'📊',topic:'HTML vs XML',ek:'u1',unit:1,
+   q:'¿Cuál es la diferencia principal entre HTML y XML?',
+   opts:[
+     'HTML es más moderno que XML',
+     'HTML muestra datos, XML los estructura',
+     'XML usa más etiquetas que HTML',
+     'Son exactamente lo mismo'
+   ],
+   ok:1,
+   exp:'HTML = presentar/mostrar datos al usuario. XML = estructurar y organizar datos para intercambiarlos entre sistemas.'},
+  {type:'test',emoji:'🔤',topic:'XML — case sensitive',ek:'u1',unit:1,
+   q:'¿XML es case sensitive (sensible a mayúsculas)?',
+   opts:[
+     'No, ignora mayúsculas y minúsculas',
+     'Sí, <Nombre> y <nombre> son etiquetas DIFERENTES',
+     'Solo en los atributos',
+     'Solo en las etiquetas de apertura'
+   ],
+   ok:1,
+   exp:'XML distingue mayúsculas y minúsculas. <Nombre> ≠ <nombre>. Debes ser consistente al abrir y cerrar etiquetas.'},
+  {type:'test',emoji:'🏷️',topic:'XML — etiqueta vacía',ek:'u1',unit:1,
+   q:'¿Cuál es la sintaxis correcta de una etiqueta VACÍA en XML?',
+   opts:[
+     'Solo <elemento></elemento>',
+     'Solo <elemento/>',
+     'Solo <elemento />',
+     '<elemento/> y <elemento /> son ambas válidas'
+   ],
+   ok:3,
+   exp:'Las etiquetas vacías pueden escribirse <elemento/> o <elemento /> — ambas formas son válidas en XML.'},
+  {type:'test',emoji:'🔄',topic:'XSLT',ek:'u1',unit:1,
+   q:'¿Qué hace XSLT en un procesador XML?',
+   opts:[
+     'Crea entidades personalizadas',
+     'Transforma XML en otros formatos como HTML',
+     'Valida la sintaxis del prólogo',
+     'Define el elemento raíz'
+   ],
+   ok:1,
+   exp:'XSLT es un lenguaje de transformación. Los procesadores lo usan para convertir XML en HTML u otros formatos.'},
+  {type:'test',emoji:'🛠️',topic:'Editores de marcas',ek:'u1',unit:1,
+   q:'¿Cuál de estos NO es un editor de lenguajes de marcas?',
+   opts:['VS Code','Notepad++','Apache Tomcat','Sublime Text'],
+   ok:2,
+   exp:'Apache Tomcat es un servidor web/contenedor de aplicaciones, no un editor. Los editores son VS Code, Notepad++, Sublime Text, Atom.'},
+];
+QS.forEach(q => { if(!q.unit) q.unit = (q.ek==='json') ? 3 : 2; });
+
+// ── UNIDAD 4: XML / XPath / XSL ──
+const QS4 = [
+  {type:'fc',emoji:'📡',topic:'XML — introducción',ek:'xml',unit:4,
+   front:'¿Qué es XML y en qué se diferencia de HTML?',
+   back:'XML = lenguaje de marcado para DESCRIBIR datos.\n\n• XML NO tiene etiquetas predefinidas → tú las defines\n• HTML describe cómo se VE\n• XML describe QUÉ SON los datos\n\nEjemplo: <pelicula><titulo>...</titulo></pelicula>'},
+  {type:'fc',emoji:'🔧',topic:'XMLHttpRequest — pasos',ek:'xml',unit:4,
+   front:'¿Cuáles son los pasos para cargar un XML con XMLHttpRequest?',
+   back:'1. var xhr = new XMLHttpRequest()\n2. xhr.open("GET", "archivo.xml", false)\n3. xhr.send()\n4. Comprobar: xhr.status === 200\n5. Leer: xhr.responseXML\n6. Obtener nodos: getElementsByTagName("etiqueta")'},
+  {type:'fc',emoji:'🔍',topic:'XPath — selectores',ek:'xml',unit:4,
+   front:'¿Qué significan estos selectores XPath: /  //  .  ..  []  @',
+   back:'/ → nodo raíz\n// → buscar en TODO el documento\n. → nodo actual\n.. → nodo padre\n[] → filtro / condición\n@ → atributos del nodo'},
+  {type:'fc',emoji:'⚙️',topic:'XPath — funciones',ek:'xml',unit:4,
+   front:'¿Qué hacen count(), sum(), contains(), starts-with() y substring() en XPath?',
+   back:'count() → cuenta nodos coincidentes\nsum() → suma valores numéricos\ncontains() → busca texto dentro de un string\nstarts-with() → comprueba si empieza por algo\nsubstring() → extrae parte de un texto'},
+  {type:'fc',emoji:'🔄',topic:'XSL — transformación',ek:'xml',unit:4,
+   front:'¿Qué es XSL/XSLT y cómo se vincula al XML?',
+   back:'XSL transforma XML → HTML o texto legible.\n\nVínculo en el XML:\n<?xml-stylesheet type="text/xsl" href="archivo.xsl"?>\n\nXSL genera HTML dinámico. El XML original NO se modifica.'},
+  {type:'test',emoji:'📡',topic:'XML — concepto',ek:'xml',unit:4,
+   q:'¿Cuál es la característica principal que diferencia XML de HTML?',
+   opts:[
+     'XML tiene etiquetas fijas como <p> y <div>',
+     'XML es solo para páginas web',
+     'En XML tú defines tus propias etiquetas según los datos',
+     'XML solo funciona con JavaScript'
+   ],
+   ok:2,
+   exp:'XML no tiene etiquetas predefinidas. Tú creas las tuyas: <pelicula>, <titulo>, <precio>... lo que necesites para describir tus datos.'},
+  {type:'test',emoji:'🎯',topic:'XML — para qué sirve',ek:'xml',unit:4,
+   q:'¿Para qué sirve XML principalmente?',
+   opts:[
+     'Dar estilos visuales a la web',
+     'Organizar, transportar y validar datos entre sistemas',
+     'Crear animaciones en el navegador',
+     'Sustituir a CSS en diseño web'
+   ],
+   ok:1,
+   exp:'XML sirve para estructurar datos de forma portable y validable, y transportarlos entre sistemas. No tiene nada que ver con estilos ni animaciones.'},
+  {type:'test',emoji:'🔧',topic:'XMLHttpRequest',ek:'xml',unit:4,
+   q:'¿Para qué sirve XMLHttpRequest en JavaScript?',
+   opts:[
+     'Para aplicar estilos CSS desde JS',
+     'Para crear archivos XML en el servidor',
+     'Para hacer peticiones HTTP y cargar datos sin recargar la página',
+     'Para validar formularios HTML'
+   ],
+   ok:2,
+   exp:'XMLHttpRequest hace peticiones GET/POST al servidor de forma asíncrona o síncrona, cargando XML, JSON o HTML sin recargar la página.'},
+  {type:'test',emoji:'✅',topic:'XMLHttpRequest — status',ek:'xml',unit:4,
+   q:'¿Qué significa xhr.status === 200 al cargar un XML?',
+   opts:[
+     'El XML tiene 200 nodos',
+     'La petición fue exitosa y el recurso existe',
+     'El servidor tardó 200ms',
+     'Hay 200 errores en el XML'
+   ],
+   ok:1,
+   exp:'HTTP 200 = OK → petición exitosa, archivo cargado correctamente. 404 = no encontrado. 500 = error del servidor.'},
+  {type:'test',emoji:'🔍',topic:'XPath — selector //',ek:'xml',unit:4,
+   q:'¿Qué hace el selector // en XPath?',
+   opts:[
+     'Selecciona solo el nodo raíz',
+     'Comenta una línea',
+     'Busca el elemento en todo el documento sin importar su posición',
+     'Divide dos valores'
+   ],
+   ok:2,
+   exp:'// busca en TODO el árbol XML. //pelicula encuentra todos los <pelicula> sin importar dónde estén en la jerarquía.'},
+  {type:'test',emoji:'🔎',topic:'XPath — filtros []',ek:'xml',unit:4,
+   q:'¿Qué expresión XPath devuelve las películas con año posterior a 2000?',
+   opts:[
+     '//pelicula.año > 2000',
+     '//pelicula where año > 2000',
+     '//pelicula[año > 2000]',
+     '//pelicula(año > 2000)'
+   ],
+   ok:2,
+   exp:'Los filtros XPath van entre corchetes []. //pelicula[año > 2000] filtra los nodos <pelicula> cuyo hijo <año> sea mayor que 2000.'},
+  {type:'test',emoji:'⚙️',topic:'XPath — count()',ek:'xml',unit:4,
+   q:'¿Qué devuelve count(//pelicula) en XPath?',
+   opts:[
+     'El título de la primera película',
+     'El número total de nodos <pelicula> en el documento',
+     'La suma de todos los años',
+     'El texto de todos los nodos'
+   ],
+   ok:1,
+   exp:'count() cuenta los nodos que coinciden. count(//pelicula) devuelve cuántas etiquetas <pelicula> hay en todo el XML.'},
+  {type:'test',emoji:'🔄',topic:'XSL — función',ek:'xml',unit:4,
+   q:'¿Qué hace XSL (XSLT)?',
+   opts:[
+     'Valida la sintaxis del XML',
+     'Transforma un XML en HTML u otro formato legible',
+     'Hace peticiones HTTP al servidor',
+     'Comprime el XML para enviarlo'
+   ],
+   ok:1,
+   exp:'XSLT transforma XML → HTML, texto u otros formatos usando plantillas. El XML original no se modifica nunca.'},
+  {type:'test',emoji:'🔗',topic:'XSL — enlace al XML',ek:'xml',unit:4,
+   q:'¿Qué línea conecta un archivo XML con su hoja XSL?',
+   opts:[
+     '<link rel="xsl" href="archivo.xsl">',
+     '<?xml-stylesheet type="text/xsl" href="archivo.xsl"?>',
+     '<xsl:import href="archivo.xsl"/>',
+     '@import url("archivo.xsl")'
+   ],
+   ok:1,
+   exp:'La instrucción <?xml-stylesheet type="text/xsl" href="archivo.xsl"?> se escribe al inicio del XML para vincularlo con su XSL.'},
+  {type:'test',emoji:'🏗️',topic:'XMLHttpRequest — procesamiento',ek:'xml',unit:4,
+   q:'¿Qué hace getElementsByTagName("pelicula") al procesar un XML?',
+   opts:[
+     'Crea nuevas etiquetas <pelicula>',
+     'Borra todos los nodos <pelicula>',
+     'Obtiene todos los nodos con esa etiqueta para recorrerlos',
+     'Valida que la etiqueta sea correcta'
+   ],
+   ok:2,
+   exp:'getElementsByTagName devuelve una lista de todos los nodos con ese nombre. Los recorres con for para extraer título, género, año, etc. y generar HTML.'},
+  {type:'test',emoji:'📡',topic:'XPath — atributos',ek:'xml',unit:4,
+   q:'¿Cómo se accede a un ATRIBUTO en XPath?',
+   opts:['Con punto: .atributo','Con hash: #atributo','Con arroba: @atributo','Con corchetes: [atributo]'],
+   ok:2,
+   exp:'En XPath el símbolo @ accede a atributos. Ejemplo: //pelicula[@id="1"] filtra la película con atributo id igual a 1.'},
+];
+
+// ── BANCO DE EXAMEN (preguntas reales de tus exámenes) ──
+const QS_EXAM = [
+  // ── XML / DTD ──
+  {type:'test',emoji:'📋',topic:'DTD — atributo opcional',ek:'u1',unit:1,
+   q:'Para declarar en DTD que un atributo "pais" es OPCIONAL, se escribe <!ATTLIST autor pais CDATA #_____>.',
+   opts:['DEFAULT','IMPLIED','FIXED','REQUIRED'],
+   ok:1,
+   exp:'#IMPLIED = el atributo es opcional (puede no aparecer). #REQUIRED = obligatorio. #FIXED = valor fijo. DEFAULT = valor por defecto.'},
+  {type:'test',emoji:'🔤',topic:'XML — caracteres especiales',ek:'u1',unit:1,
+   q:'¿Qué se debe hacer para representar caracteres especiales como <, > o & en XML?',
+   opts:[
+     'Escribirlos directamente en el contenido',
+     'Encerrarlos entre comillas',
+     'Reemplazarlos por espacios',
+     'Usar entidades o códigos especiales'
+   ],
+   ok:3,
+   exp:'En XML los caracteres < > & " \' tienen significado especial. Hay que usar entidades: &lt; &gt; &amp; &quot; &apos;'},
+  {type:'test',emoji:'📋',topic:'DTD — atributo obligatorio',ek:'u1',unit:1,
+   q:'En un DTD, <!ATTLIST libro titulo CDATA #_____> indica que el atributo titulo es OBLIGATORIO.',
+   opts:['REQUIRED','OPTIONAL','FIXED','IMPLIED'],
+   ok:0,
+   exp:'#REQUIRED = el atributo es obligatorio y debe aparecer siempre. #IMPLIED = opcional. #FIXED = valor fijo inamovible.'},
+  {type:'test',emoji:'🌐',topic:'XML — característica principal',ek:'u1',unit:1,
+   q:'¿Cuál es la característica principal de XML frente a HTML?',
+   opts:[
+     'Define solo el diseño visual',
+     'Permite crear tus propias etiquetas y estructura de datos',
+     'Sirve únicamente para enlazar documentos web',
+     'No admite atributos en las etiquetas'
+   ],
+   ok:1,
+   exp:'XML es extensible: tú defines tus propias etiquetas. HTML tiene etiquetas predefinidas y sirve para presentar contenido visualmente.'},
+  {type:'test',emoji:'📄',topic:'DTD — elemento PCDATA',ek:'u1',unit:1,
+   q:'Dado el XML <autor>Jose</autor>, ¿cuál sería el DTD correcto?',
+   opts:[
+     '<!ELEMENT autor (#PCDATA)>',
+     '<!ELEMENT autor EMPTY>',
+     '<!ELEMENT autor ANY>',
+     '<!ELEMENT autor (CDATA)>'
+   ],
+   ok:0,
+   exp:'#PCDATA (Parsed Character Data) = el elemento contiene texto. Es el tipo correcto para <autor>Jose</autor>. EMPTY sería para elementos vacíos.'},
+  {type:'test',emoji:'✅',topic:'XSD vs DTD',ek:'u1',unit:1,
+   q:'¿Cuál es la principal ventaja de XSD frente a DTD?',
+   opts:[
+     'No utiliza namespaces',
+     'Permite definir tipos de datos y restricciones',
+     'No necesita validación',
+     'Es menos estricto que DTD'
+   ],
+   ok:1,
+   exp:'XSD permite definir tipos (string, integer, date...) y restricciones (min, max, pattern). DTD solo define estructura básica sin tipos de datos.'},
+  {type:'test',emoji:'💬',topic:'XML — comentario apertura',ek:'u1',unit:1,
+   q:'Un comentario en XML comienza con ____',
+   opts:['<--','<!--','--!<','!-->'],
+   ok:1,
+   exp:'Los comentarios XML: <!-- comentario -->. Empiezan con <!-- y terminan con -->. No pueden anidarse ni ir antes del prólogo.'},
+  {type:'test',emoji:'💬',topic:'XML — comentario cierre',ek:'u1',unit:1,
+   q:'Un comentario en XML termina con ____',
+   opts:['--!','-->','<-->','<!--'],
+   ok:1,
+   exp:'Los comentarios XML empiezan con <!-- y terminan con -->. Ejemplo completo: <!-- Este es un comentario -->'},
+  {type:'test',emoji:'📋',topic:'DTD — ID único',ek:'u1',unit:1,
+   q:'En un DTD, <!ATTLIST libro codigo _____ #REQUIRED> define el atributo codigo como identificador único.',
+   opts:['IDREFS','ID','CDATA','IDREF'],
+   ok:1,
+   exp:'ID = identificador único en todo el documento XML. IDREF = referencia a un ID. IDREFS = múltiples referencias. CDATA = texto libre.'},
+  {type:'test',emoji:'📦',topic:'XML — validación',ek:'u1',unit:1,
+   q:'¿Qué requiere XML para que un documento sea VÁLIDO?',
+   opts:[
+     'Que tenga imágenes y enlaces',
+     'Que se compile en un navegador',
+     'Que incluya CSS y JavaScript',
+     'Que esté bien formado y cumpla reglas como DTD o XSD'
+   ],
+   ok:3,
+   exp:'Un XML válido = bien formado (reglas básicas) + cumple un esquema (DTD o XSD). Bien formado ≠ válido. Puede estar bien formado pero no válido.'},
+  {type:'test',emoji:'🏗️',topic:'XML — estructura jerárquica',ek:'u1',unit:1,
+   q:'¿Cómo es la estructura de un XML?',
+   opts:[
+     'Jerárquica, organizando los datos en un árbol con elementos principales y secundarios',
+     'Aleatoria, con etiquetas independientes sin jerarquía',
+     'Desordenada, permitiendo etiquetas en cualquier lugar',
+     'Lineal, con los datos dispuestos uno tras otro sin relación'
+   ],
+   ok:0,
+   exp:'XML tiene estructura jerárquica en árbol: un elemento raíz contiene hijos, que pueden tener más hijos, formando una estructura padre-hijo.'},
+  {type:'test',emoji:'🔤',topic:'DTD — entidad personalizada',ek:'u1',unit:1,
+   q:'Dado el DTD <!ENTITY empresa "Instituto Tecnológico Andaluz">, el XML válido sería ____',
+   opts:[
+     '<entidad>&empresa;</entidad>',
+     '<empresa>&nombre;</empresa>',
+     '<nombre>&empresa;</nombre>',
+     '<instituto>&empresa;</instituto>'
+   ],
+   ok:2,
+   exp:'La entidad se llama "empresa" y se usa con &empresa;. El nombre de la etiqueta puede ser cualquiera — en el examen la respuesta correcta fue <nombre>&empresa;</nombre>.'},
+  {type:'test',emoji:'📄',topic:'XML — archivo bien formado',ek:'u1',unit:1,
+   q:'¿Cuál de estos archivos XML está correctamente estructurado?',
+   opts:[
+     '<libro><titulo nombre="El Quijote"><autor nombre="Miguel"></libro>',
+     '<libro><titulo>El Quijote<autor>Miguel</titulo></libro>',
+     '<libro><titulo>El Quijote</titulo><autor>Miguel de Cervantes</autor></libro>',
+     '<libro><titulo>El Quijote<autor>Miguel</libro>'
+   ],
+   ok:2,
+   exp:'La opción C es correcta: todas las etiquetas abren y cierran correctamente y están bien anidadas. Las otras tienen etiquetas sin cerrar o mal anidadas.'},
+
+  // ── HTML / CSS ──
+  {type:'test',emoji:'🔗',topic:'HTML — enlace correcto',ek:'html',unit:2,
+   q:'Elige la opción correcta para crear un enlace en HTML.',
+   opts:[
+     '<a href="www.digitechfp.com">Ir al sitio web</a>',
+     '<href a="www.digitechfp.com"></href>',
+     '<a link="www.digitechfp.com"></a>',
+     '<a href>www.digitechfp.com</a>'
+   ],
+   ok:0,
+   exp:'La sintaxis correcta es <a href="url">texto</a>. El atributo que define el destino es href. "link" no existe como atributo de <a>.'},
+  {type:'test',emoji:'🎨',topic:'CSS — función',ek:'css',unit:2,
+   q:'¿Cuál es la función de CSS en el desarrollo web?',
+   opts:[
+     'Estructurar y organizar el contenido',
+     'Describir la presentación y el estilo de la página',
+     'Gestionar la comunicación con el servidor',
+     'Controlar la lógica e interactividad'
+   ],
+   ok:1,
+   exp:'CSS = Cascading Style Sheets. Describe la PRESENTACIÓN y estilo visual. HTML estructura, CSS diseña, JS da interactividad.'},
+  {type:'test',emoji:'🏗️',topic:'HTML — etiqueta head',ek:'html',unit:2,
+   q:'En HTML, ¿cuál es la función de la etiqueta <head>?',
+   opts:[
+     'Definir el contenido principal de la página',
+     'Incluir elementos multimedia',
+     'Especificar la información del encabezado: título y metadatos',
+     'Controlar la presentación visual'
+   ],
+   ok:2,
+   exp:'<head> contiene metadatos, el <title>, enlaces a CSS, scripts JS y otras configuraciones. No es visible para el usuario.'},
+  {type:'test',emoji:'🖼️',topic:'HTML — etiqueta img',ek:'html',unit:2,
+   q:'¿Qué hace la etiqueta <img> en HTML?',
+   opts:[
+     'Define un enlace a otra página',
+     'Muestra una imagen en la página',
+     'Crea una lista numerada',
+     'Define una tabla'
+   ],
+   ok:1,
+   exp:'<img src="ruta.jpg" alt="descripción"> muestra una imagen. Es una etiqueta vacía (no tiene cierre). alt es obligatorio para accesibilidad.'},
+  {type:'test',emoji:'🎬',topic:'HTML — audio/video controls',ek:'html',unit:2,
+   q:'¿Qué atributo de <audio> o <video> permite controlar la reproducción?',
+   opts:['loop','src','autoplay','controls'],
+   ok:3,
+   exp:'controls muestra los controles de reproducción (play, pause, volumen). src = ruta del archivo. autoplay = reproduce automáticamente. loop = repite.'},
+  {type:'test',emoji:'🌐',topic:'HTML — propósito',ek:'html',unit:2,
+   q:'¿Cuál es el propósito principal de HTML en el desarrollo web?',
+   opts:[
+     'Controlar la lógica de la aplicación',
+     'Definir el estilo y diseño',
+     'Gestionar la interacción con la base de datos',
+     'Estructurar y presentar contenido en la web'
+   ],
+   ok:3,
+   exp:'HTML estructura y presenta el contenido. CSS da estilo. JavaScript controla la lógica. Base de datos = backend (PHP, Node, etc.).'},
+  {type:'test',emoji:'🎨',topic:'CSS — centrar texto',ek:'css',unit:2,
+   q:'¿Qué propiedad CSS se usa para centrar texto dentro de un <div>?',
+   opts:['set-align: middle','text-align: center','align-center: 0 auto','text-item: center'],
+   ok:1,
+   exp:'text-align: center centra el texto horizontalmente. Las otras opciones no son propiedades CSS válidas.'},
+  {type:'test',emoji:'🌐',topic:'HTML — versión con multimedia',ek:'html',unit:2,
+   q:'La versión de HTML que soporta audio, vídeo y gráficos SIN plugins es ____',
+   opts:['HTML 4.01','HTML5','HTML 3.2','XHTML'],
+   ok:1,
+   exp:'HTML5 (2014) introdujo <audio>, <video>, <canvas> y <svg> nativos. Antes necesitabas plugins como Flash para multimedia.'},
+  {type:'test',emoji:'🔲',topic:'HTML — etiqueta div',ek:'html',unit:2,
+   q:'¿Cuál es la función de la etiqueta <div> en HTML?',
+   opts:[
+     'Organizar el contenido agrupando otros elementos',
+     'Reproducir contenido multimedia',
+     'Crear vínculos a otras páginas',
+     'Insertar encabezados en la página'
+   ],
+   ok:0,
+   exp:'<div> es un contenedor genérico de bloque que agrupa elementos. No tiene significado semántico propio, se usa para estructura y CSS.'},
+  {type:'test',emoji:'🏷️',topic:'HTML — lenguaje de marcas',ek:'html',unit:2,
+   q:'¿Cuál describe mejor a un lenguaje de marcas?',
+   opts:[
+     'Instrucciones para ejecutar programas',
+     'Solo para gestión de bases de datos',
+     'Lenguaje de programación de bajo nivel',
+     'Método de codificación con etiquetas que aportan información sobre estructura o presentación'
+   ],
+   ok:3,
+   exp:'Un lenguaje de marcas usa etiquetas/marcas para aportar información adicional sobre la estructura o presentación del texto. No ejecuta lógica.'},
+  {type:'test',emoji:'↩️',topic:'HTML — salto de línea',ek:'html',unit:2,
+   q:'¿Cuál es la etiqueta que se usa para hacer un SALTO DE LÍNEA en HTML?',
+   opts:['<ra>','<ar>','<br>','<rb>'],
+   ok:2,
+   exp:'<br> (break) inserta un salto de línea. Es una etiqueta vacía (no tiene cierre). Para párrafos usa <p>.'},
+  {type:'test',emoji:'🎨',topic:'CSS — insertar CSS incorrecto',ek:'css',unit:2,
+   q:'Selecciona la forma INCORRECTA de insertar CSS en HTML.',
+   opts:[
+     'Escribir reglas CSS dentro de una etiqueta &lt;script&gt; en el &lt;head&gt;',
+     'Usar <link rel="stylesheet" href="styles.css"> en el <head>',
+     'Incluir CSS dentro de una etiqueta <style> en el <head>',
+     'Usar el atributo style directamente en una etiqueta HTML'
+   ],
+   ok:0,
+   exp:'CSS va en <style> o en archivo externo con <link>. NUNCA dentro de &lt;script&gt; — eso es para JavaScript. Meter CSS en &lt;script&gt; es incorrecto.'},
+  {type:'test',emoji:'🔗',topic:'HTML — CSS externo',ek:'css',unit:2,
+   q:'¿Cómo se incluye un archivo CSS externo en un documento HTML?',
+   opts:[
+     'Poniendo la ruta en el atributo style de una etiqueta',
+     'Escribiendo el CSS dentro de un &lt;script&gt;',
+     'Usando una etiqueta <link> en el <head>',
+     'Usando la etiqueta <css> para enlazar el archivo'
+   ],
+   ok:2,
+   exp:'<link rel="stylesheet" href="estilos.css"> en el <head>. La etiqueta <css> no existe. El atributo style es para CSS inline.'},
+  {type:'test',emoji:'📱',topic:'Media Query — font-size responsive',ek:'media',unit:2,
+   q:'¿Qué media queries reducen el font-size cuando la pantalla es menor de 600px y lo aumentan si es mayor de 1200px?',
+   opts:[
+     '@media (max-width:600px){p{font-size:12px}} @media (min-width:1200px){p{font-size:20px}}',
+     '@media (min-width:600px){p{font-size:20px}} @media (max-width:1200px){p{font-size:12px}}',
+     '@media (max-width:1200px) and (min-width:600px){p{font-size:16px}}',
+     '@media (max-width:1200px){p{font-size:12px}} @media (min-width:600px){p{font-size:20px}}'
+   ],
+   ok:0,
+   exp:'max-width:600px = "pantallas pequeñas" → tamaño reducido. min-width:1200px = "pantallas grandes" → tamaño aumentado. La opción A es la única correcta.'},
+  {type:'test',emoji:'🖱️',topic:'CSS — pseudoclase hover',ek:'css',unit:2,
+   q:'¿Cuál de estas pseudoclases CSS se activa al entrar en contacto con el puntero SIN hacer click?',
+   opts:[':active',':hover',':link',':focus'],
+   ok:1,
+   exp:':hover = ratón encima (sin pulsar). :active = mientras se pulsa. :focus = elemento seleccionado/enfocado. :link = enlace no visitado.'},
+  {type:'test',emoji:'🖱️',topic:'CSS — pseudoclase active',ek:'css',unit:2,
+   q:'¿Qué indica la pseudoclase :active en CSS?',
+   opts:[
+     'Que se está pulsando el botón del ratón sobre el elemento',
+     'Que el elemento ha perdido el foco',
+     'Que el elemento ha sido visitado',
+     'Que el ratón está encima del elemento'
+   ],
+   ok:0,
+   exp:':active se aplica MIENTRAS se pulsa el botón del ratón. :hover = solo pasar por encima. :visited = enlace ya visitado. :blur = perdió foco.'},
+  {type:'test',emoji:'📱',topic:'Media Query — desktop 992px',ek:'media',unit:2,
+   q:'¿Cómo se define una media query para pantallas de escritorio con ancho MÍNIMO de 992px?',
+   opts:[
+     '@media (max-width: 992px) { }',
+     '@media screen and (width-min: 992px) { }',
+     '@media (min-width: 992px) { }',
+     '@media (width > 992px) { }'
+   ],
+   ok:2,
+   exp:'min-width: 992px = "pantalla de al menos 992px". La propiedad correcta es min-width, no width-min. La sintaxis (width > 992px) no es estándar CSS3.'},
+  {type:'test',emoji:'⚡',topic:'Bootstrap — descripción',ek:'bootstrap',unit:2,
+   q:'¿Cuál de estas opciones describe correctamente Bootstrap?',
+   opts:[
+     'Herramienta exclusiva para programación de servidores',
+     'Solo para blogs estáticos, sin estilos responsivos',
+     'Lenguaje de programación que sustituye HTML y CSS',
+     'Framework gratuito y open source con componentes HTML/CSS/JS para webs responsivas'
+   ],
+   ok:3,
+   exp:'Bootstrap es un framework frontend gratuito y open source. Proporciona componentes listos (grid, navbar, botones) para crear webs responsivas rápido.'},
+  {type:'test',emoji:'📱',topic:'Media Query — para qué sirve',ek:'media',unit:2,
+   q:'¿Para qué se utilizan las media queries en CSS?',
+   opts:[
+     'Para crear animaciones avanzadas sin JavaScript',
+     'Para hacer la web más rápida sin CSS',
+     'Para aplicar estilos de forma condicional según el tamaño o características del dispositivo',
+     'Para cargar archivos JavaScript según el tamaño de pantalla'
+   ],
+   ok:2,
+   exp:'Las media queries aplican estilos CSS de forma condicional: @media (max-width: 600px) { } aplica esos estilos solo si la pantalla tiene ≤600px.'},
+
+  // ── JAVASCRIPT ──
+  {type:'test',emoji:'⚡',topic:'JS — script externo',ek:'html',unit:2,
+   q:'¿Cuál es la sintaxis correcta para referirse a un archivo JavaScript externo?',
+   opts:[
+     '&lt;script link="xxx.js"&gt;&lt;\/script&gt;',
+     '&lt;script&gt;href="xxx.js"&lt;\/script&gt;',
+     '&lt;script src="xxx.js"&gt;&lt;\/script&gt;',
+     '&lt;script href="xxx.js"&gt;&lt;\/script&gt;'
+   ],
+   ok:2,
+   exp:'Para JS externo: &lt;script src="archivo.js"&gt;&lt;/script&gt;. El atributo es src (no href, no link). href se usa en &lt;link&gt; para CSS.'},
+  {type:'test',emoji:'🖥️',topic:'JS — console.log',ek:'html',unit:2,
+   q:'¿Qué instrucción en JavaScript se usa para mostrar el contenido de una variable por CONSOLA?',
+   opts:['console.log()','show()','alert()','document.write()'],
+   ok:0,
+   exp:'console.log() muestra en la consola del navegador (F12). alert() muestra un popup. document.write() escribe en el HTML. show() no existe.'},
+  {type:'test',emoji:'💻',topic:'JS — array push',ek:'json',unit:3,
+   q:'¿Cuál es el método correcto para añadir un elemento al FINAL de un array en JavaScript?',
+   opts:['array.insert(elemento)','array.add(elemento)','array.push(elemento)','array.append(elemento)'],
+   ok:2,
+   exp:'push() añade al final. unshift() añade al principio. pop() elimina el último. insert(), add() y append() no existen en arrays JS nativos.'},
+  {type:'test',emoji:'🗂️',topic:'JS — if/else',ek:'json',unit:3,
+   q:'¿Qué estructura de control se usa en JavaScript para ejecutar código basado en una CONDICIÓN?',
+   opts:['if y else','switch y case','try y catch','for y while'],
+   ok:0,
+   exp:'if/else ejecuta código según una condición. switch/case compara valores. try/catch maneja errores. for/while son bucles de repetición.'},
+  {type:'test',emoji:'🔧',topic:'JS — getElementById innerHTML',ek:'html',unit:2,
+   q:'¿Qué método JS cambia el contenido de un elemento HTML cuando se hace clic en un botón?',
+   opts:[
+     'document.setElementById("id").value',
+     'document.getElementsByTagName("id").innerHTML',
+     'document.getElementById("id").innerText',
+     'document.querySelectorAll("id").textContent'
+   ],
+   ok:2,
+   exp:'document.getElementById("id").innerText cambia el texto del elemento. innerHTML permite también insertar HTML. setElementById y getElementsByTagName no funcionan así.'},
+  {type:'test',emoji:'🗂️',topic:'JS vs JSON',ek:'json',unit:3,
+   q:'¿En qué se diferencia JSON de un objeto JavaScript?',
+   opts:[
+     'JSON permite almacenar funciones dentro de sus objetos',
+     'JSON solo permite datos; un objeto JS puede contener funciones',
+     'Un objeto JavaScript solo puede contener strings',
+     'JSON permite comentarios dentro de su sintaxis'
+   ],
+   ok:1,
+   exp:'JSON es solo datos (strings, números, booleanos, arrays, objetos, null). Los objetos JS pueden además contener funciones. JSON no admite comentarios.'},
+  {type:'test',emoji:'🔧',topic:'JS — getElementById',ek:'html',unit:2,
+   q:'¿Qué método JS permite seleccionar un elemento HTML por su atributo ID?',
+   opts:[
+     'document.getElementsByClass("id")',
+     'document.selectElement("id")',
+     'document.getElementById("id")',
+     'document.querySelectorAll("id")'
+   ],
+   ok:2,
+   exp:'getElementById("id") selecciona UN elemento por su id único. getElementsByClass no existe (es getElementsByClassName). querySelectorAll devuelve lista.'},
+  {type:'test',emoji:'➕',topic:'JS — operador +',ek:'json',unit:3,
+   q:'¿Cuál es la función del operador + en JavaScript?',
+   opts:[
+     'Solo se usa en comparaciones lógicas',
+     'Es exclusivo para arrays',
+     'Se usa tanto para sumar números como para concatenar strings',
+     'Solo sirve para sumas matemáticas'
+   ],
+   ok:2,
+   exp:'En JS el + hace dos cosas: suma números (5+3=8) y concatena strings ("Hola"+" mundo"="Hola mundo"). Si mezclas número y string, convierte a string.'},
+  {type:'test',emoji:'🚗',topic:'JS — acceso a propiedad',ek:'json',unit:3,
+   q:'Si tienes un objeto "coche" con propiedades marca, modelo y año, ¿cómo accedes al valor de la marca?',
+   opts:['coche->marca','coche[marca]','coche.marca','coche("marca")'],
+   ok:2,
+   exp:'La notación de punto coche.marca es la forma estándar. También vale coche["marca"] (con comillas). coche[marca] sin comillas busca una variable llamada marca.'},
+  {type:'test',emoji:'📦',topic:'JS — let const var',ek:'json',unit:3,
+   q:'¿Cuál es la diferencia principal entre let, const y var en JavaScript?',
+   opts:[
+     'Solo var puede usarse en cualquier parte sin restricciones',
+     'let y const son iguales; var solo se usa en backend',
+     'const puede cambiar y let es una constante',
+     'let permite reasignación, const es constante, var tiene alcance global (no recomendado)'
+   ],
+   ok:3,
+   exp:'let = variable con scope de bloque, reasignable. const = constante, no reasignable. var = scope global/función, puede causar bugs (no recomendado en código moderno).'},
+  {type:'test',emoji:'🎨',topic:'JS — cambiar color CSS',ek:'css',unit:2,
+   q:'¿Qué método JS se usa para cambiar el COLOR de un elemento HTML?',
+   opts:[
+     'document.setElementById("id").value.backgroundColor',
+     'document.getElementById("id").innerText.backgroundColor',
+     'document.getElementById("id").backgroundColor',
+     'document.getElementById("id").style.backgroundColor'
+   ],
+   ok:3,
+   exp:'Para cambiar estilos desde JS: elemento.style.propiedad = "valor". Ejemplo: document.getElementById("caja").style.backgroundColor = "red".'},
+  {type:'test',emoji:'💻',topic:'JS — insertar texto en párrafo',ek:'html',unit:2,
+   q:'¿Cuál es una forma correcta de insertar contenido dentro de un párrafo \u003cp\u003e desde JavaScript?',
+   opts:[
+     'element.text = "Hola"',
+     'document.getElementById("miParrafo").innerText = "Hola"',
+     'getElement("p").add("Hola")',
+     'setText("Hola")'
+   ],
+   ok:1,
+   exp:'document.getElementById("id").innerText = "texto" o .innerHTML = "texto" son las formas correctas. getElement y setText no existen.'},
+  {type:'test',emoji:'🍎',topic:'JS — primer elemento array',ek:'json',unit:3,
+   q:'Si tienes un array frutas = ["manzana","pera","plátano"], ¿cómo accedes al PRIMER elemento?',
+   opts:['frutas[1]','frutas.0','frutas[0]','frutas(0)'],
+   ok:2,
+   exp:'Los arrays en JS empiezan en el índice 0. frutas[0] = "manzana", frutas[1] = "pera", frutas[2] = "plátano". frutas.0 y frutas(0) son sintaxis inválida.'},
+  {type:'test',emoji:'🔢',topic:'JS — cuarto elemento array',ek:'json',unit:3,
+   q:'¿Cómo se accede al CUARTO elemento de un array en JavaScript?',
+   opts:['array.3','array[3]','array[4]','array{3}'],
+   ok:1,
+   exp:'El cuarto elemento está en el índice 3 (los arrays empiezan en 0). array[3] es correcto. array[4] sería el QUINTO elemento.'},
+  {type:'test',emoji:'🔧',topic:'JS — declarar variable',ek:'json',unit:3,
+   q:'¿Cuál es la forma correcta de declarar una variable en JavaScript?',
+   opts:['let numero = 5','int numero = 5','define numero = 5','numero : 5'],
+   ok:0,
+   exp:'En JS se usa let, const o var. "int" es de C/Java. "define" no existe en JS. "numero : 5" es sintaxis de objeto, no declaración de variable.'},
+  {type:'test',emoji:'🔧',topic:'JS — declarar función',ek:'json',unit:3,
+   q:'¿Cuál es la forma correcta de declarar una FUNCIÓN en JavaScript?',
+   opts:[
+     'function myFunction()',
+     'define myFunction()',
+     'function:myFunction()',
+     'var myFunction = function[]'
+   ],
+   ok:0,
+   exp:'function myFunction() { } es la declaración estándar. También es válido const myFunction = function() {} o const myFunction = () => {}. define no existe en JS.'},
+  {type:'test',emoji:'🎯',topic:'XML — para transportar datos',ek:'u1',unit:1,
+   q:'¿Qué tipo de lenguaje de marcas se usa comúnmente para ALMACENAR y TRANSPORTAR datos de forma estructurada?',
+   opts:[
+     'XML (eXtensible Markup Language)',
+     'HTML (Hypertext Markup Language)',
+     'SGML (Standard Generalized Markup Language)',
+     'CSS (Cascading Style Sheets)'
+   ],
+   ok:0,
+   exp:'XML es el estándar para almacenar y transportar datos estructurados entre sistemas. HTML es para presentar, CSS para estilos, SGML es el padre de HTML/XML.'},
+];
+
+// ── AUTOEVALUACIÓN 1 (preguntas reales del examen de Moodle) ──
+const QS_AUTO1 = [
+  {type:'test',emoji:'🔗',topic:'Auto1 — Enlace HTML',ek:'html',unit:7,
+   q:'Elige la opción correcta para crear adecuadamente un enlace.',
+   opts:[
+     '<a href="www.digitechfp.com">Ir al sitio web</a>',
+     '<href a="www.digitechfp.com"></href>',
+     '<a link="www.digitechfp.com"></a>',
+     '<a href>www.digitechfp.com</a>'
+   ],
+   ok:0,
+   exp:'La sintaxis correcta es <a href="url">texto</a>. El atributo que define el destino es href. "link" no existe como atributo de <a>.'},
+
+  {type:'test',emoji:'📄',topic:'Auto1 — XML bien formado',ek:'u1',unit:7,
+   q:'¿Qué archivo XML está correctamente estructurado?',
+   opts:[
+     '<libro><titulo nombre="El Quijote"><autor nombre="Miguel de Cervantes"></libro>',
+     '<libro><titulo>El Quijote<autor>Miguel de Cervantes</titulo></libro>',
+     '<libro><titulo>El Quijote</titulo><autor>Miguel de Cervantes</autor></libro>',
+     '<libro><titulo>El Quijote<autor>Miguel de Cervantes</libro>'
+   ],
+   ok:2,
+   exp:'La opción C es correcta: todas las etiquetas abren y cierran bien y están correctamente anidadas. Las demás tienen etiquetas sin cerrar o mal anidadas.'},
+
+  {type:'test',emoji:'🎨',topic:'Auto1 — Función de CSS',ek:'css',unit:7,
+   q:'¿Cuál es la función de CSS (Cascading Style Sheets) en el desarrollo web?',
+   opts:[
+     'Estructurar y organizar el contenido de la página',
+     'Describir la presentación y el estilo de la página',
+     'Gestionar la comunicación con el servidor web',
+     'Controlar la lógica y la interactividad de la aplicación'
+   ],
+   ok:1,
+   exp:'CSS describe la presentación y el estilo visual. HTML estructura el contenido, JavaScript controla la lógica e interactividad.'},
+
+  {type:'test',emoji:'🏗️',topic:'Auto1 — Etiqueta head',ek:'html',unit:7,
+   q:'En HTML, ¿cuál es la función de la etiqueta <head>?',
+   opts:[
+     'Definir el contenido principal de la página',
+     'Incluir elementos multimedia como imágenes y videos',
+     'Especificar la información del encabezado, como el título y metadatos',
+     'Controlar la presentación visual de la página web'
+   ],
+   ok:2,
+   exp:'<head> contiene metadatos, el <title>, enlaces a CSS, scripts JS y otras configuraciones. No es visible para el usuario.'},
+
+  {type:'test',emoji:'📋',topic:'Auto1 — DTD atributo ID',ek:'u1',unit:7,
+   q:'En un DTD, <!ATTLIST libro codigo _____ #REQUIRED> define el atributo codigo como identificador único.',
+   opts:['IDREFS','ID','CDATA','IDREF'],
+   ok:1,
+   exp:'ID = identificador único en todo el documento. IDREF = referencia a un ID. IDREFS = múltiples referencias. CDATA = texto libre sin restricciones.'},
+
+  {type:'test',emoji:'🖼️',topic:'Auto1 — Etiqueta img',ek:'html',unit:7,
+   q:'¿Qué hace la etiqueta <img> en HTML?',
+   opts:[
+     'Define un enlace a otra página web',
+     'Muestra una imagen en la página',
+     'Crea una lista numerada',
+     'Define una tabla'
+   ],
+   ok:1,
+   exp:'<img src="ruta.jpg" alt="descripción"> muestra una imagen. Es una etiqueta vacía (sin cierre). El atributo alt es obligatorio para accesibilidad.'},
+
+  {type:'test',emoji:'🎬',topic:'Auto1 — Atributo controls',ek:'html',unit:7,
+   q:'¿Qué atributo de <audio> o <video> permite controlar la reproducción del archivo?',
+   opts:['loop','src','autoplay','controls'],
+   ok:3,
+   exp:'controls muestra los controles de reproducción (play, pause, volumen). src = ruta del archivo. autoplay = reproduce automáticamente. loop = repite en bucle.'},
+
+  {type:'test',emoji:'✅',topic:'Auto1 — XSD vs DTD',ek:'u1',unit:7,
+   q:'¿Cuál es la principal ventaja de XSD frente a DTD?',
+   opts:[
+     'No necesita validación',
+     'Es menos estricto que DTD',
+     'No utiliza namespaces',
+     'Permite definir tipos de datos y restricciones'
+   ],
+   ok:3,
+   exp:'XSD permite definir tipos (string, integer, date...) y restricciones (min, max, pattern). DTD solo define estructura básica sin tipos de datos.'},
+
+  {type:'test',emoji:'🌐',topic:'Auto1 — XML para datos',ek:'u1',unit:7,
+   q:'¿Qué tipo de lenguaje de marcas se usa para almacenar y transportar datos de forma estructurada?',
+   opts:[
+     'XML (eXtensible Markup Language)',
+     'HTML (Hypertext Markup Language)',
+     'SGML (Standard Generalized Markup Language)',
+     'CSS (Cascading Style Sheets)'
+   ],
+   ok:0,
+   exp:'XML es el estándar para almacenar y transportar datos estructurados. HTML = presentar, CSS = estilos, SGML = padre de HTML/XML.'},
+
+  {type:'test',emoji:'🎨',topic:'Auto1 — CSS centrar texto',ek:'css',unit:7,
+   q:'¿Qué propiedad CSS se usa para centrar elementos dentro de un div?',
+   opts:['set-aling: middle','text-align: center','aling-center: 0 auto','text-item: center'],
+   ok:1,
+   exp:'text-align: center centra el texto horizontalmente. Las otras opciones no son propiedades CSS válidas.'},
+
+  {type:'test',emoji:'🌐',topic:'Auto1 — Propósito HTML',ek:'html',unit:7,
+   q:'¿Cuál es el propósito principal de HTML en el desarrollo web?',
+   opts:[
+     'Controlar la lógica de la aplicación web',
+     'Definir el estilo y diseño de la página',
+     'Gestionar la interacción con la base de datos',
+     'Estructurar y presentar contenido en la web'
+   ],
+   ok:3,
+   exp:'HTML estructura y presenta el contenido. CSS da estilo. JavaScript controla la lógica. La base de datos es backend (PHP, Node, etc.).'},
+
+  {type:'test',emoji:'🏗️',topic:'Auto1 — Estructura XML',ek:'u1',unit:7,
+   q:'¿Cómo es la estructura de un XML?',
+   opts:[
+     'Jerárquica, organizando los datos en un árbol con elementos principales y secundarios',
+     'Aleatoria, con etiquetas independientes sin jerarquía',
+     'Desordenada, permitiendo etiquetas en cualquier lugar',
+     'Lineal, con los datos dispuestos uno tras otro sin relación'
+   ],
+   ok:0,
+   exp:'XML tiene estructura jerárquica en árbol: un elemento raíz contiene hijos, que pueden tener más hijos, formando una estructura padre-hijo.'},
+
+  {type:'test',emoji:'🌐',topic:'Auto1 — HTML5 multimedia',ek:'html',unit:7,
+   q:'La versión de HTML que soporta audio, vídeo y gráficos sin necesidad de plugins es ____',
+   opts:['HTML 4.01','HTML5','HTML 3.2','XHTML'],
+   ok:1,
+   exp:'HTML5 (2014) introdujo audio, video, canvas y svg nativos. Antes necesitabas plugins externos como Flash para multimedia.'},
+
+  {type:'test',emoji:'🔲',topic:'Auto1 — Etiqueta div',ek:'html',unit:7,
+   q:'¿Cuál es la función de la etiqueta div en HTML?',
+   opts:[
+     'Organizar el contenido agrupando otros elementos',
+     'Reproducir contenido multimedia',
+     'Crear vínculos a otras páginas',
+     'Insertar encabezados en la página'
+   ],
+   ok:0,
+   exp:'div es un contenedor genérico de bloque que agrupa elementos. No tiene significado semántico propio, se usa para estructurar y aplicar CSS.'},
+
+  {type:'test',emoji:'🏷️',topic:'Auto1 — Lenguaje de marcas',ek:'html',unit:7,
+   q:'¿Cuál describe mejor a un lenguaje de marcas?',
+   opts:[
+     'Instrucciones específicas para la ejecución de programas',
+     'Solo se utiliza para la gestión de bases de datos',
+     'Es un lenguaje de programación de bajo nivel',
+     'Método de codificación con etiquetas que aportan información sobre estructura o presentación'
+   ],
+   ok:3,
+   exp:'Un lenguaje de marcas usa etiquetas/marcas para añadir información sobre la estructura o presentación del contenido. No ejecuta lógica.'},
+
+  {type:'test',emoji:'↩️',topic:'Auto1 — Salto de línea',ek:'html',unit:7,
+   q:'¿Cuál es la etiqueta que se usa para hacer un salto de línea en HTML?',
+   opts:['<ra>','<ar>','<br>','<rb>'],
+   ok:2,
+   exp:'<br> (break) inserta un salto de línea. Es una etiqueta vacía sin cierre. Para párrafos separados usa <p>.'},
+
+  {type:'test',emoji:'💬',topic:'Auto1 — Comentario XML cierre',ek:'u1',unit:7,
+   q:'Un comentario en XML termina con ____',
+   opts:['--!','-->','<-->','<!--'],
+   ok:1,
+   exp:'Los comentarios XML empiezan con <!-- y terminan con -->. Ejemplo completo: <!-- Este es un comentario -->'},
+
+  {type:'test',emoji:'📋',topic:'Auto1 — DTD REQUIRED',ek:'u1',unit:7,
+   q:'En un DTD, <!ATTLIST libro titulo CDATA #_____> indica que el atributo titulo es obligatorio.',
+   opts:['OPTIONAL','FIXED','IMPLIED','REQUIRED'],
+   ok:3,
+   exp:'#REQUIRED = el atributo es obligatorio y debe aparecer siempre. #IMPLIED = opcional. #FIXED = valor fijo. OPTIONAL no existe en DTD.'},
+
+  {type:'test',emoji:'📦',topic:'Auto1 — XML válido',ek:'u1',unit:7,
+   q:'¿Qué requiere XML para que un documento sea válido?',
+   opts:[
+     'Que tenga imágenes y enlaces',
+     'Que se compile en un navegador',
+     'Que incluya CSS y JavaScript',
+     'Que esté bien formado y cumpla reglas como DTD o XSD'
+   ],
+   ok:3,
+   exp:'Un XML válido = bien formado (reglas básicas de sintaxis) + cumple un esquema (DTD o XSD). Bien formado ≠ válido.'},
+
+  {type:'test',emoji:'🔤',topic:'Auto1 — Entidad personalizada',ek:'u1',unit:7,
+   q:'Dado el DTD <!ENTITY empresa "Instituto Tecnológico Andaluz">, el XML válido sería ____',
+   opts:[
+     '<entidad>&empresa;</entidad>',
+     '<empresa>&nombre;</empresa>',
+     '<nombre>&empresa;</nombre>',
+     '<instituto>&empresa;</instituto>'
+   ],
+   ok:2,
+   exp:'La entidad se llama "empresa" y se usa con &empresa;. El nombre de la etiqueta puede ser cualquiera. La respuesta correcta del examen fue <nombre>&empresa;</nombre>.'},
+];
+
+
+// ── AUTOEVALUACIÓN 2 (JS, CSS, Media Queries, Bootstrap) ──
+const QS_AUTO2 = [
+  {type:'test',emoji:'⚡',topic:'Auto2 — Script externo',ek:'html',unit:8,
+   q:'¿Cuál es la sintaxis correcta para referirse a un archivo externo de JavaScript?',
+   opts:[
+     '&lt;script link="xxx.js"&gt;&lt;\/script&gt;',
+     '&lt;script&gt;href="xxx.js"&lt;\/script&gt;',
+     '&lt;script src="xxx.js"&gt;&lt;\/script&gt;',
+     '&lt;script href="xxx.js"&gt;&lt;\/script&gt;'
+   ],
+   ok:2,
+   exp:'Para JS externo: &lt;script src="archivo.js"&gt;&lt;/script&gt;. El atributo es src. href se usa en &lt;link&gt; para CSS, no para script.'},
+
+  {type:'test',emoji:'🖥️',topic:'Auto2 — console.log',ek:'json',unit:8,
+   q:'¿Qué instrucción en JavaScript se usa para mostrar el contenido de una variable por consola?',
+   opts:['console.log()','show()','alert()','document.write()'],
+   ok:0,
+   exp:'console.log() muestra en la consola del navegador (F12). alert() muestra un popup. document.write() escribe en el HTML. show() no existe en JS.'},
+
+  {type:'test',emoji:'📱',topic:'Auto2 — Media query font-size',ek:'media',unit:8,
+   q:'¿Qué media queries reducen el font-size bajo 600px y lo aumentan sobre 1200px?',
+   opts:[
+     '@media (max-width:600px){p{font-size:12px}} @media (min-width:1200px){p{font-size:20px}}',
+     '@media (min-width:600px){p{font-size:20px}} @media (max-width:1200px){p{font-size:12px}}',
+     '@media (max-width:1200px) and (min-width:600px){p{font-size:16px}}',
+     '@media (max-width:1200px){p{font-size:12px}} @media (min-width:600px){p{font-size:20px}}'
+   ],
+   ok:0,
+   exp:'max-width:600px = pantallas pequeñas → tamaño pequeño. min-width:1200px = pantallas grandes → tamaño grande. La opción A es la única correcta.'},
+
+  {type:'test',emoji:'🖱️',topic:'Auto2 — Pseudoclase hover',ek:'css',unit:8,
+   q:'¿Qué pseudoclase CSS se activa al entrar en contacto con el puntero SIN hacer click?',
+   opts:[':active',':hover',':link',':focus'],
+   ok:1,
+   exp:':hover = ratón encima sin pulsar. :active = mientras se pulsa. :focus = elemento enfocado/seleccionado. :link = enlace no visitado.'},
+
+  {type:'test',emoji:'📱',topic:'Auto2 — Para qué sirven media queries',ek:'media',unit:8,
+   q:'¿Para qué se utilizan las media queries en CSS?',
+   opts:[
+     'Para crear animaciones avanzadas sin JavaScript',
+     'Para hacer la web más rápida sin CSS',
+     'Para aplicar estilos CSS de manera condicional según el tamaño o características del dispositivo',
+     'Para cargar archivos JavaScript según el tamaño de pantalla'
+   ],
+   ok:2,
+   exp:'Las media queries aplican estilos condicionalmente: @media (max-width:600px) aplica solo si pantalla es de 600px o menos. Permiten diseño responsive.'},
+
+  {type:'test',emoji:'🎨',topic:'Auto2 — JS cambiar color',ek:'css',unit:8,
+   q:'¿Qué método JS se usa para cambiar el COLOR de fondo de un elemento HTML?',
+   opts:[
+     'document.setElementById("id").value.backgroundColor',
+     'document.getElementById("id").innerText.backgroundColor',
+     'document.getElementById("id").backgroundColor',
+     'document.getElementById("id").style.backgroundColor'
+   ],
+   ok:3,
+   exp:'Para cambiar estilos desde JS: elemento.style.propiedad = "valor". Ejemplo: document.getElementById("caja").style.backgroundColor = "red".'},
+
+  {type:'test',emoji:'⚡',topic:'Auto2 — Bootstrap descripción',ek:'bootstrap',unit:8,
+   q:'¿Cuál de estas opciones describe correctamente Bootstrap?',
+   opts:[
+     'Herramienta exclusiva para programación de servidores',
+     'Solo para blogs estáticos, sin estilos responsivos',
+     'Lenguaje de programación que sustituye HTML y CSS',
+     'Framework gratuito y open source con componentes HTML/CSS/JS para webs responsivas'
+   ],
+   ok:3,
+   exp:'Bootstrap es un framework frontend gratuito y open source. Da componentes listos (grid, navbar, botones) para crear webs responsivas rápido.'},
+
+  {type:'test',emoji:'💻',topic:'Auto2 — Insertar texto párrafo',ek:'html',unit:8,
+   q:'¿Cuál es una forma correcta de insertar contenido dentro de un párrafo desde JavaScript?',
+   opts:[
+     'element.text = "Hola"',
+     'document.getElementById("miParrafo").innerText = "Hola"',
+     'getElement("p").add("Hola")',
+     'setText("Hola")'
+   ],
+   ok:1,
+   exp:'document.getElementById("id").innerText = "texto" o .innerHTML = "texto" son las formas correctas. getElement y setText no existen en JS.'},
+
+  {type:'test',emoji:'🎨',topic:'Auto2 — CSS incorrecto en HTML',ek:'css',unit:8,
+   q:'Selecciona la forma INCORRECTA de insertar CSS en un archivo HTML.',
+   opts:[
+     'Escribir reglas CSS dentro de una etiqueta &lt;script&gt; en el &lt;head&gt;',
+     'Usar &lt;link rel="stylesheet" href="styles.css"&gt; en el &lt;head&gt;',
+     'Incluir CSS dentro de &lt;style&gt; en el &lt;head&gt;',
+     'Usar el atributo style directamente en una etiqueta HTML'
+   ],
+   ok:0,
+   exp:'CSS NUNCA va en &lt;script&gt; — eso es para JavaScript. Las formas correctas son: archivo externo con &lt;link&gt;, etiqueta &lt;style&gt;, o atributo style inline.'},
+
+  {type:'test',emoji:'🍎',topic:'Auto2 — Array primer elemento',ek:'json',unit:8,
+   q:'Si tienes frutas = ["manzana","pera","plátano"], ¿cómo accedes al PRIMER elemento?',
+   opts:['frutas[1]','frutas.0','frutas[0]','frutas(0)'],
+   ok:2,
+   exp:'Los arrays en JS empiezan en índice 0. frutas[0] = "manzana". frutas[1] = "pera". frutas.0 y frutas(0) son sintaxis inválida.'},
+
+  {type:'test',emoji:'📦',topic:'Auto2 — let const var',ek:'json',unit:8,
+   q:'¿Cuál es la diferencia principal entre let, const y var en JavaScript?',
+   opts:[
+     'let y const son iguales; var solo se usa en backend',
+     'let permite reasignación, const es constante, var tiene alcance global (no recomendado)',
+     'Solo var puede usarse en cualquier parte sin restricciones',
+     'const puede cambiar y let es una constante'
+   ],
+   ok:1,
+   exp:'let = reasignable, scope de bloque. const = constante, no reasignable. var = scope global/función, puede causar bugs. En código moderno se usa let y const.'},
+
+  {type:'test',emoji:'🔗',topic:'Auto2 — CSS externo en HTML',ek:'css',unit:8,
+   q:'¿Cómo se incluye un archivo CSS externo en un documento HTML?',
+   opts:[
+     'Poniendo la ruta en el atributo style de una etiqueta',
+     'Escribiendo el CSS dentro de un &lt;script&gt;',
+     'Usando una etiqueta &lt;link&gt; en el &lt;head&gt; del documento',
+     'Usando la etiqueta &lt;css&gt; para enlazar el archivo externo'
+   ],
+   ok:2,
+   exp:'&lt;link rel="stylesheet" href="estilos.css"&gt; en el &lt;head&gt;. La etiqueta &lt;css&gt; no existe. El atributo style es para CSS inline.'},
+
+  {type:'test',emoji:'🔔',topic:'Auto2 — alert()',ek:'json',unit:8,
+   q:'¿Cuál es la función en JavaScript que muestra un cuadro de ALERTA con un mensaje?',
+   opts:['alert("mensaje")','message("mensaje")','console.log("mensaje")','prompt("mensaje")'],
+   ok:0,
+   exp:'alert() muestra un popup de alerta. console.log() escribe en consola. prompt() pide input al usuario. message() no existe en JS.'},
+
+  {type:'test',emoji:'🔧',topic:'Auto2 — Declarar función',ek:'json',unit:8,
+   q:'¿Cuál es la forma correcta de declarar una función en JavaScript?',
+   opts:[
+     'function myFunction()',
+     'define myFunction()',
+     'function:myFunction()',
+     'var myFunction = function[]'
+   ],
+   ok:0,
+   exp:'function myFunction() { } es la declaración estándar. También válido: const myFunction = () => {}. define no existe en JS. function: es sintaxis inválida.'},
+
+  {type:'test',emoji:'🖱️',topic:'Auto2 — Pseudoclase active',ek:'css',unit:8,
+   q:'¿Qué indica la pseudoclase :active en CSS?',
+   opts:[
+     'Que se está pulsando el botón del ratón sobre el elemento',
+     'Que el elemento ha perdido el foco',
+     'Que el elemento ha sido visitado',
+     'Que el ratón está encima del elemento'
+   ],
+   ok:0,
+   exp:':active = mientras se pulsa el ratón. :hover = ratón encima sin pulsar. :visited = enlace ya visitado. :blur = ha perdido el foco.'},
+
+  {type:'test',emoji:'🔧',topic:'Auto2 — Declarar variable',ek:'json',unit:8,
+   q:'¿Cuál es la forma correcta de declarar una variable en JavaScript?',
+   opts:['let numero = 5;','int numero = 5;','define numero = 5;','numero : 5;'],
+   ok:0,
+   exp:'En JS se declara con let, const o var. "int" es de C/Java. "define" no existe. "numero : 5" es sintaxis de objeto, no declaración de variable.'},
+
+  {type:'test',emoji:'🗂️',topic:'Auto2 — if y else',ek:'json',unit:8,
+   q:'¿Qué estructura de control se usa en JavaScript para ejecutar código basado en una CONDICIÓN?',
+   opts:['try y catch','for y while','switch y case','if y else'],
+   ok:3,
+   exp:'if/else ejecuta código según una condición verdadera/falsa. switch/case compara valores. try/catch maneja errores. for/while son bucles de repetición.'},
+
+  {type:'test',emoji:'📱',topic:'Auto2 — Media query desktop 992px',ek:'media',unit:8,
+   q:'¿Cómo se define una media query para pantallas de escritorio con ancho mínimo de 992px?',
+   opts:[
+     '@media (max-width: 992px) { }',
+     '@media screen and (width-min: 992px) { }',
+     '@media (min-width: 992px) { }',
+     '@media (width > 992px) { }'
+   ],
+   ok:2,
+   exp:'min-width: 992px = "pantalla de al menos 992px". La propiedad es min-width, no width-min. La sintaxis (width > 992px) no es CSS3 estándar.'},
+
+  {type:'test',emoji:'🔢',topic:'Auto2 — Cuarto elemento array',ek:'json',unit:8,
+   q:'¿Cómo se accede al CUARTO elemento de un array en JavaScript?',
+   opts:['array.3','array[3]','array[4]','array{3}'],
+   ok:1,
+   exp:'Los arrays empiezan en índice 0. El cuarto elemento está en array[3]. array[4] sería el QUINTO. array.3 y array{3} son sintaxis inválida.'},
+
+  {type:'test',emoji:'🔧',topic:'Auto2 — getElementById',ek:'html',unit:8,
+   q:'¿Qué método JS permite seleccionar un elemento HTML por su atributo id?',
+   opts:[
+     'document.querySelectorAll("idElemento")',
+     'document.getElementById("idElemento")',
+     'document.selectElement("idElemento")',
+     'document.getElementsByClass("idElemento")'
+   ],
+   ok:1,
+   exp:'getElementById("id") selecciona UN elemento por su id único. querySelectorAll devuelve lista de nodos. getElementsByClass no existe (es getElementsByClassName).'},
+];
+
+const ALL_QS = [...QS1, ...QS, ...QS4, ...QS_EXAM, ...QS_AUTO1, ...QS_AUTO2];
+
+// ===== STATE =====
+let S = {};
+let selectedUnit = 5;
+
+function selectUnit(u) {
+  selectedUnit = u;
+  document.querySelectorAll('.unit-card').forEach(c => {
+    const cardNum = parseInt(c.id.replace('ucard-',''));
+    c.classList.toggle('selected', cardNum === u);
+  });
+  playSelect();
+}
+
+document.addEventListener('DOMContentLoaded', () => selectUnit(5));
+selectUnit(5);
+
+function shuffle(a) {
+  const b = [...a];
+  for (let i = b.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [b[i],b[j]] = [b[j],b[i]];
+  }
+  return b;
+}
+
+function startQuiz() {
+  playBoxSmash();
+  let pool;
+  if(selectedUnit===1) pool = ALL_QS.filter(q=>q.unit===1);
+  else if(selectedUnit===2) pool = ALL_QS.filter(q=>q.unit===2);
+  else if(selectedUnit===3) pool = ALL_QS.filter(q=>q.unit===3);
+  else if(selectedUnit===4) pool = ALL_QS.filter(q=>q.unit===4);
+  else if(selectedUnit===6) pool = QS_EXAM;
+  else if(selectedUnit===7) pool = QS_AUTO1;
+  else if(selectedUnit===8) pool = QS_AUTO2;
+  else pool = ALL_QS;
+  if(!pool || pool.length===0) pool = ALL_QS;
+  const qs = shuffle(pool).slice(0, 30);
+  S = {qs, cur:0, xp:0, lives:5, combo:0, ok:0, ko:0, done:false, flipped:false};
+  show('question-screen');
+  document.getElementById('topbar').style.display='flex';
+  playBgMusic();
+  updateTop(); renderQ();
+}
+
+function show(id) {
+  ['start-screen','question-screen','results-screen'].forEach(s=>
+    document.getElementById(s).classList.toggle('active', s===id));
+}
+
+function goHome() {
+  if(floatT) clearInterval(floatT);
+  stopBgMusic();
+  document.getElementById('topbar').style.display='none';
+  show('start-screen');
+}
+
+function updateTop() {
+  document.getElementById('prog').style.width=(S.cur/S.qs.length*100)+'%';
+  document.getElementById('lives-n').textContent=S.lives;
+  document.getElementById('xp-n').textContent=S.xp;
+}
+
+function renderQ() {
+  if(S.cur>=S.qs.length){showResults();return;}
+  S.done=false; S.flipped=false;
+  const q=S.qs[S.cur];
+  updateTop();
+  startFloat(q.ek);
+
+  const el=document.getElementById('qc');
+  void el.offsetWidth;
+
+  let h=`<div class="q-label">${q.topic}</div>
+          <div class="q-emoji-row">${q.emoji}</div>`;
+
+  if(q.type==='fc'){
+    h+=`<div class="q-text">${q.front}</div>
+        <p class="fc-hint">👆 Golpea la caja para ver la respuesta</p>
+        <div class="fc-scene" id="fcs" onclick="flipCard()">
+          <div class="fc-inner">
+            <div class="fc-face fc-front">${q.front}</div>
+            <div class="fc-face fc-back">${q.back.replace(/\n/g,'<br>')}</div>
+          </div>
+        </div>
+        <div class="fc-btns" id="fc-btns">
+          <button class="fc-btn no"   onclick="fcDone(false)">💥 No lo sabía</button>
+          <button class="fc-btn knew" onclick="fcDone(true)">🍎 ¡Lo sabía!</button>
+        </div>`;
+  } else {
+    h+=`<div class="q-text">${q.q}</div>
+        <div class="opts" id="opts">`;
+    ['A','B','C','D'].forEach((l,i)=>{
+      h+=`<button class="opt" id="o${i}" onclick="pick(${i})">
+            <span class="opt-lbl">${l}</span>${q.opts[i]}
+          </button>`;
+    });
+    h+=`</div>
+        <div class="fb" id="fb"></div>
+        <button class="btn-cont" id="bcont" onclick="next()"></button>`;
+  }
+  el.innerHTML=h;
+}
+
+function flipCard(){
+  if(S.done) return;
+  if(!S.flipped){
+    document.getElementById('fcs').classList.add('flipped');
+    S.flipped=true;
+    playFlip();
+    document.getElementById('fc-btns').style.display='grid';
+  }
+}
+
+function fcDone(knew){
+  if(S.done) return;
+  S.done=true;
+  if(knew){
+    S.combo++; S.ok++;
+    const xp=10+(S.combo>=3?5:0);
+    S.xp+=xp; playOk(); popXP(xp);
+    if(S.combo>=3){confetti();showCombo();}
+  } else {
+    S.combo=0; S.ko++;
+    S.lives=Math.max(0,S.lives-1);
+    playBad();
+  }
+  updateTop();
+  setTimeout(()=>{ S.cur++; if(S.lives<=0||S.cur>=S.qs.length) showResults(); else renderQ(); },380);
+}
+
+function pick(i){
+  if(S.done) return;
+  S.done=true;
+  const q=S.qs[S.cur];
+  const ok=i===q.ok;
+  document.querySelectorAll('.opt').forEach(b=>b.onclick=null);
+  document.getElementById('o'+i).classList.add(ok?'correct':'wrong');
+  if(!ok) document.getElementById('o'+q.ok).classList.add('show-correct');
+  const fb=document.getElementById('fb');
+  const bc=document.getElementById('bcont');
+  if(ok){
+    S.combo++; S.ok++;
+    const xp=10+(S.combo>=3?5:0);
+    S.xp+=xp; playOk(); popXP(xp);
+    if(S.combo>=3){confetti();showCombo();}
+    fb.className='fb ok';
+    fb.innerHTML=`<div class="fb-title ok">🍎 ${S.combo>=3?'🔥 COMBO ×'+S.combo+'! ':''}¡CORRECTO!</div><div class="fb-exp">${q.exp.replace(/\n/g,'<br>')}</div>`;
+    bc.className='btn-cont ok'; bc.textContent='💨 CONTINUAR →';
+  } else {
+    S.combo=0; S.ko++;
+    S.lives=Math.max(0,S.lives-1);
+    playBad();
+    const qc=document.getElementById('qc');
+    qc.classList.add('shake'); setTimeout(()=>qc.classList.remove('shake'),380);
+    fb.className='fb bad';
+    fb.innerHTML=`<div class="fb-title bad">💥 ¡INCORRECTO!</div><div class="fb-exp">${q.exp.replace(/\n/g,'<br>')}</div>`;
+    bc.className='btn-cont bad'; bc.textContent='💀 CONTINUAR →';
+  }
+  bc.style.display='block';
+  updateTop();
+}
+
+function next(){
+  S.cur++;
+  if(S.lives<=0||S.cur>=S.qs.length) showResults(); else renderQ();
+}
+
+function showResults(){
+  if(floatT) clearInterval(floatT);
+  stopBgMusic();
+  document.getElementById('topbar').style.display='none';
+  show('results-screen');
+  const pct=S.ok/(S.ok+S.ko||1)*100;
+  let owl='💀',title='GAME OVER',sub='Repasa y vuelve a intentarlo...';
+  if(pct<50){owl='💀';title='GAME OVER';sub='Aku Aku no te puede salvar...';}
+  else if(pct<70){owl='🎮';title='¡BUEN INTENTO!';sub='Sigue practicando, casi casi.';}
+  else if(pct<90){owl='🍎';title='¡MUY BIEN!';sub='¡Casi perfecto! Cortex tiembla.';}
+  else{owl='🏆';title='¡WOAH!';sub='¡Perfecto! Eres más rápido que Crash.';playFinish();confetti();confetti();}
+  document.getElementById('res-owl').textContent=owl;
+  document.getElementById('res-title').textContent=title;
+  document.getElementById('res-sub').textContent=sub;
+  document.getElementById('res-ok').textContent=S.ok;
+  document.getElementById('res-ko').textContent=S.ko;
+  document.getElementById('res-xp').textContent=S.xp;
+}
+
+function popXP(n){
+  const el=document.createElement('div');
+  el.className='xp-pop'; el.textContent='+'+n+' 🍎';
+  const r=document.getElementById('xp-n').getBoundingClientRect();
+  el.style.cssText=`left:${r.left}px;top:${r.top}px;`;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),950);
+}
+
+function confetti(){
+  const C=['#FF6B00','#FFD700','#FF4136','#2ECC40','#0074D9','#B10DC9'];
+  for(let i=0;i<35;i++){
+    const c=document.createElement('div');
+    c.className='conf';
+    const dur=(0.8+Math.random()*0.7).toFixed(2)+'s';
+    c.style.cssText=`left:${10+Math.random()*80}%;top:${5+Math.random()*25}%;background:${C[Math.floor(Math.random()*C.length)]};animation-duration:${dur};animation-delay:${(Math.random()*0.3).toFixed(2)}s;`;
+    c.style.setProperty('--dur',dur);
+    document.body.appendChild(c);
+    setTimeout(()=>c.remove(),1600);
+  }
+}
+
+function showCombo(){
+  const el=document.createElement('div');
+  el.className='combo-badge';
+  el.textContent='💥 COMBO ×'+S.combo+'!';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1600);
+}
+</script>
+</body>
+</html>
